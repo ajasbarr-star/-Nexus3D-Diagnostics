@@ -1,4 +1,3 @@
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -16,7 +15,10 @@ val hasStableSigning = !signingStorePath.isNullOrBlank() &&
     !signingKeyAlias.isNullOrBlank() &&
     !signingKeyPassword.isNullOrBlank()
 
-val ciBuildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+val diagnosticsBuildNumber =
+    providers.gradleProperty("diagnosticsBuildNumber").orNull?.toIntOrNull() ?: 1
+require(diagnosticsBuildNumber >= 1) { "diagnosticsBuildNumber must be at least 1" }
+val diagnosticsVersionName = "1.0.%02d".format(diagnosticsBuildNumber)
 
 android {
     namespace = "com.nexus3d.diagnostics"
@@ -26,8 +28,9 @@ android {
         applicationId = "com.nexus3d.diagnostics"
         minSdk = 26
         targetSdk = 35
-        versionCode = ciBuildNumber.coerceAtLeast(1)
-        versionName = "0.1.$ciBuildNumber"
+        // Build 1 starts at 26 so it can update the existing Build 25 APK.
+        versionCode = 25 + diagnosticsBuildNumber
+        versionName = diagnosticsVersionName
     }
 
     signingConfigs {
@@ -44,13 +47,9 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            if (hasStableSigning) {
-                signingConfig = signingConfigs.getByName("nexus3dStable")
-            }
+            if (hasStableSigning) signingConfig = signingConfigs.getByName("nexus3dStable")
         }
-        release {
-            isMinifyEnabled = false
-        }
+        release { isMinifyEnabled = false }
     }
 
     compileOptions {
@@ -69,10 +68,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
-
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
-
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
