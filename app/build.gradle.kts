@@ -1,9 +1,22 @@
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
 }
+
+val signingStorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+val signingStorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val signingKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
+val signingKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+
+val hasStableSigning = !signingStorePath.isNullOrBlank() &&
+    !signingStorePassword.isNullOrBlank() &&
+    !signingKeyAlias.isNullOrBlank() &&
+    !signingKeyPassword.isNullOrBlank()
+
+val ciBuildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 
 android {
     namespace = "com.nexus3d.diagnostics"
@@ -13,15 +26,30 @@ android {
         applicationId = "com.nexus3d.diagnostics"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = ciBuildNumber.coerceAtLeast(1)
+        versionName = "0.1.$ciBuildNumber"
+    }
+
+    signingConfigs {
+        if (hasStableSigning) {
+            create("nexus3dStable") {
+                storeFile = file(signingStorePath!!)
+                storePassword = signingStorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+            }
+        }
     }
 
     buildTypes {
-        debug { applicationIdSuffix = ".debug" }
+        debug {
+            applicationIdSuffix = ".debug"
+            if (hasStableSigning) {
+                signingConfig = signingConfigs.getByName("nexus3dStable")
+            }
+        }
         release {
             isMinifyEnabled = false
-            // Release signing is deliberately not configured in this foundation build.
         }
     }
 
