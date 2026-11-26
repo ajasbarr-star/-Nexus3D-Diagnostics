@@ -1,5 +1,6 @@
 package com.nexus3d.diagnostics
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
@@ -13,8 +14,8 @@ data class DiagnosticEvent(
     val details: String,
     val sessionId: String? = null,
     val createdAtEpochMs: Long = System.currentTimeMillis(),
-    val eventId: String = UUID.randomUUID().toString(),
-    val deviceId: String = "local-bridge-unknown",
-    val sequence: Long = 0,
-    val schemaVersion: Int = 1
+    @ColumnInfo(defaultValue = "''") val eventId: String = UUID.randomUUID().toString(),
+    @ColumnInfo(defaultValue = "'legacy-local'") val deviceId: String = "local-bridge-unknown",
+    @ColumnInfo(defaultValue = "0") val sequence: Long = 0,
+    @ColumnInfo(defaultValue = "1") val schemaVersion: Int = 1
 )
