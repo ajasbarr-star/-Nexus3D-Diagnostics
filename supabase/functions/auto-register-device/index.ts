@@ -33,7 +33,10 @@ Deno.serve(async (req: Request) => {
     if (!credential || credential.revoked_at || credential.token_hash !== tokenHash) return jsonResponse({ error: "installation_identity_conflict" }, 409);
     const { data: updated, error } = await admin.from("devices").update({
       manufacturer, model, android_version: androidVersion, app_version: appVersion,
-      app_build_number: buildNumber, app_version_code: versionCode, last_seen_at: new Date().toISOString()
+      app_build_number: buildNumber, app_version_code: versionCode,
+      status: "active", archived_at: null,
+      presence_state: "online", presence_updated_at: new Date().toISOString(), last_active_at: new Date().toISOString(),
+      last_seen_at: new Date().toISOString()
     }).eq("id", existing.id).select("id, installation_id, device_name, status").single();
     if (error || !updated) return jsonResponse({ error: "device_update_failed" }, 500);
     return jsonResponse({ deviceId: updated.installation_id, deviceRecordId: updated.id, deviceName: updated.device_name, status: updated.status, registered: true }, 200);
@@ -44,7 +47,7 @@ Deno.serve(async (req: Request) => {
     device_name: [manufacturer, model].filter(Boolean).join(" ").slice(0, 100) || "Nexus3D device",
     manufacturer, model, android_version: androidVersion, app_version: appVersion,
     app_build_number: buildNumber, app_version_code: versionCode, platform: "android",
-    status: "active", registration_method: "automatic", last_seen_at: new Date().toISOString()
+    status: "active", archived_at: null, presence_state: "online", presence_updated_at: new Date().toISOString(), last_active_at: new Date().toISOString(), registration_method: "automatic", last_seen_at: new Date().toISOString()
   }).select("id, installation_id, device_name, status").single();
   if (error || !created) return jsonResponse({ error: "device_registration_failed" }, 500);
   const { error: tokenError } = await admin.from("device_tokens").insert({ device_id: created.id, token_hash: tokenHash });
