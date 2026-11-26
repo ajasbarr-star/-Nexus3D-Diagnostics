@@ -10,6 +10,9 @@ interface DiagnosticEventDao {
     @Insert
     suspend fun insert(event: DiagnosticEvent): Long
 
+    @Insert
+    suspend fun insertAll(events: List<DiagnosticEvent>): List<Long>
+
     @Query("SELECT * FROM diagnostic_events ORDER BY createdAtEpochMs DESC")
     fun observeAll(): Flow<List<DiagnosticEvent>>
 
