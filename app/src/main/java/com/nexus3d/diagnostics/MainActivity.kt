@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class DiagnosticsScreen {
-    HOME, EVENTS, RDS_LOGCAT, RIT_TRACE, EVENT_DETAILS
+    HOME, EVENTS, RDS_LOGCAT, RIT_TRACE, EVENT_DETAILS, CLOUD_ACCOUNT
 }
 
 @Composable
