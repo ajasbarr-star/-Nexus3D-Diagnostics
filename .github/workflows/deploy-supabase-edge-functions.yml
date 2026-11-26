@@ -35,14 +35,14 @@ jobs:
       - name: Deploy create-enrollment-code
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase functions deploy create-enrollment-code --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+        run: supabase functions deploy create-enrollment-code --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
 
       - name: Deploy register-device
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase functions deploy register-device --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+        run: supabase functions deploy register-device --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
 
       - name: Deploy ingest-events
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase functions deploy ingest-events --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+        run: supabase functions deploy ingest-events --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
