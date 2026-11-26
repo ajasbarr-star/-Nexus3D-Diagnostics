@@ -6,6 +6,7 @@ import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -96,6 +97,60 @@ class SupabaseAccountRepository(context: Context) {
         EnrollmentCode(code, expiresAt, result.optInt("expiresInSeconds", 600))
     }
 
+
+    suspend fun fetchRegisteredDevices(): List<RegisteredDevice> = withContext(Dispatchers.IO) {
+        var accessToken = preferences.getString(ACCESS, null)
+            ?: error("Please sign in to view registered devices.")
+        val expiresAtMillis = preferences.getLong(EXPIRES, 0L)
+        if (System.currentTimeMillis() >= expiresAtMillis - 60_000L) {
+            val refreshToken = preferences.getString(REFRESH, null)
+                ?: error("Your session expired. Please sign in again.")
+            val refreshed = request(
+                path = "/auth/v1/token?grant_type=refresh_token",
+                method = "POST",
+                body = JSONObject().put("refresh_token", refreshToken)
+            )
+            saveSessionIfPresent(refreshed)
+            accessToken = preferences.getString(ACCESS, null)
+                ?: error("Session refresh failed. Please sign in again.")
+        }
+
+        val connection = (URL(SUPABASE_URL + "/rest/v1/devices?select=id,installation_id,device_name,manufacturer,model,android_version,app_version,app_build_number,app_version_code,status,registration_method,created_at,last_seen_at&order=last_seen_at.desc")
+            .openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 15_000
+            readTimeout = 20_000
+            setRequestProperty("apikey", SUPABASE_KEY)
+            setRequestProperty("Authorization", "Bearer $accessToken")
+            setRequestProperty("Accept", "application/json")
+        }
+        try {
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (status !in 200..299) error("Unable to load device inventory (HTTP $status).")
+            val rows = JSONArray(responseText)
+            (0 until rows.length()).map { index ->
+                val row = rows.getJSONObject(index)
+                RegisteredDevice(
+                    id = row.optString("installation_id"),
+                    name = row.optString("device_name", "Nexus3D device"),
+                    manufacturer = row.optString("manufacturer").takeUnless { it == "null" }.orEmpty(),
+                    model = row.optString("model").takeUnless { it == "null" }.orEmpty(),
+                    androidVersion = row.optString("android_version").takeUnless { it == "null" }.orEmpty(),
+                    appVersion = row.optString("app_version", "unknown"),
+                    buildNumber = if (row.isNull("app_build_number")) null else row.optLong("app_build_number"),
+                    versionCode = if (row.isNull("app_version_code")) null else row.optLong("app_version_code"),
+                    status = row.optString("status", "unknown"),
+                    registrationMethod = row.optString("registration_method", "enrollment"),
+                    lastSeenAt = row.optString("last_seen_at")
+                )
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     fun signOut() {
         preferences.edit().clear().apply()
     }
@@ -151,3 +206,18 @@ class SupabaseAccountRepository(context: Context) {
         }
     }
 }
+
+ 
+data class RegisteredDevice(
+    val id: String,
+    val name: String,
+    val manufacturer: String,
+    val model: String,
+    val androidVersion: String,
+    val appVersion: String,
+    val buildNumber: Long?,
+    val versionCode: Long?,
+    val status: String,
+    val registrationMethod: String,
+    val lastSeenAt: String
+)
