@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/nd-supabase-multidevice-phase1
+      - feature/automatic-device-release-beta-management
     paths:
       - 'supabase/functions/**'
       - '.github/workflows/deploy-supabase-edge-functions.yml'
@@ -21,7 +22,7 @@ jobs:
       - name: Checkout diagnostics source
         uses: actions/checkout@v4
         with:
-          ref: feature/nd-supabase-multidevice-phase1
+          ref: ${{ github.ref_name }}
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -52,3 +53,13 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase functions deploy ingest-events --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
+
+      - name: Deploy auto-register-device
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy auto-register-device --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
+
+      - name: Deploy report-installation
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy report-installation --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
