@@ -75,23 +75,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           if [ "$GITHUB_REF_NAME" = "feature/automatic-device-release-beta-management" ]; then
-            # Use the unique GitHub Actions run number on this feature branch.
             BUILD_NUMBER="$GITHUB_RUN_NUMBER"
           else
-            EXISTING_TAG="$(git tag --points-at HEAD | grep -E '^diagnostics-build-[0-9]+
-
+            EXISTING_TAG="$(git tag --points-at HEAD | grep -E '^diagnostics-build-[0-9]+$' | sort -V | tail -n 1 || true)"
+            if [ -n "$EXISTING_TAG" ]; then
+              BUILD_NUMBER="$(printf '%s' "$EXISTING_TAG" | sed 's/^diagnostics-build-//')"
+            else
+              LAST_TAG="$(git tag -l 'diagnostics-build-*' | grep -E '^diagnostics-build-[0-9]+$' | sort -V | tail -n 1 || true)"
+              if [ -n "$LAST_TAG" ]; then
+                LAST_NUMBER="$(printf '%s' "$LAST_TAG" | sed 's/^diagnostics-build-//')"
+                BUILD_NUMBER=$((LAST_NUMBER + 1))
+              else
+                BUILD_NUMBER=1
+              fi
+            fi
+          fi
           VERSION_NAME="$(printf '1.0.%02d' "$BUILD_NUMBER")"
-          STEM="Nexus3D _Diagnostics_Build${BUILD_NUMBER}_v${VERSION_NAME}"
-
+          STEM="$(printf 'Nexus3D _Diagnostics_Build%s_v%s' "$BUILD_NUMBER" "$VERSION_NAME")"
           echo "number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "stem=$STEM" >> "$GITHUB_OUTPUT"
           echo "tag=diagnostics-build-$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-
           echo "Preparing $STEM"
-
       - name: Build signed Test APK
         shell: bash
         env:
@@ -169,238 +175,6 @@ jobs:
 
       - name: Commit successful build tag
         if: success() && github.ref_name != 'feature/automatic-device-release-beta-management'
-        shell: bash
-        env:
-          BUILD_TAG: ${{ steps.build_meta.outputs.tag }}
-        run: |
-          set -euo pipefail
-
-          if git rev-parse -q --verify "refs/tags/$BUILD_TAG" >/dev/null; then
-            echo "Build tag already exists; retaining the existing successful-build number."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-            git tag -a "$BUILD_TAG" -m "Successful Nexus3D Diagnostics build $BUILD_TAG"
-            git push origin "refs/tags/$BUILD_TAG"
-          fi
-
-      - name: Remove temporary signing keystore
-        if: always()
-        shell: bash
-        run: rm -f "$ANDROID_KEYSTORE_PATH"
- | sort -V | tail -n 1 || true)"
-
-            if [ -n "$EXISTING_TAG" ]; then
-              BUILD_NUMBER="${EXISTING_TAG#diagnostics-build-}"
-            else
-              LAST_TAG="$(git tag -l 'diagnostics-build-*' | grep -E '^diagnostics-build-[0-9]+
-
-          VERSION_NAME="$(printf '1.0.%02d' "$BUILD_NUMBER")"
-          STEM="Nexus3D _Diagnostics_Build${BUILD_NUMBER}_v${VERSION_NAME}"
-
-          echo "number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
-          echo "stem=$STEM" >> "$GITHUB_OUTPUT"
-          echo "tag=diagnostics-build-$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-
-          echo "Preparing $STEM"
-
-      - name: Build signed Test APK
-        shell: bash
-        env:
-          BUILD_NUMBER: ${{ steps.build_meta.outputs.number }}
-        run: |
-          set -euo pipefail
-          gradle :app:assembleDebug -PdiagnosticsBuildNumber="$BUILD_NUMBER"
-
-      - name: Verify APK, package ID, version and signature
-        id: verify
-        shell: bash
-        env:
-          EXPECTED_VERSION: ${{ steps.build_meta.outputs.version_name }}
-        run: |
-          set -euo pipefail
-
-          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
-          test -n "$APK" || { echo "ERROR: APK file not found."; exit 1; }
-
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer | sort -V | tail -n 1)"
-
-          test -n "$APKSIGNER" || { echo "ERROR: apksigner not found."; exit 1; }
-          test -n "$APKANALYZER" || { echo "ERROR: apkanalyzer not found."; exit 1; }
-
-          "$APKSIGNER" verify --verbose "$APK"
-          "$APKSIGNER" verify --print-certs "$APK"
-
-          PACKAGE_INFO="$("$APKANALYZER" manifest application-id "$APK")"
-          VERSION_INFO="$("$APKANALYZER" manifest version-name "$APK")"
-          VERSION_CODE="$("$APKANALYZER" manifest version-code "$APK")"
-
-          test "$PACKAGE_INFO" = "com.nexus3d.diagnostics.debug"
-          test "$VERSION_INFO" = "$EXPECTED_VERSION"
-          test "$VERSION_CODE" -ge 26
-
-          echo "apk=$APK" >> "$GITHUB_OUTPUT"
-          echo "APK checks passed: $PACKAGE_INFO $VERSION_INFO ($VERSION_CODE)"
-
-      - name: Package APK with requested filename
-        id: package
-        shell: bash
-        env:
-          STEM: ${{ steps.build_meta.outputs.stem }}
-          APK_SOURCE: ${{ steps.verify.outputs.apk }}
-        run: |
-          set -euo pipefail
-
-          mkdir -p dist
-
-          APK_NAME="${STEM}.apk"
-          ZIP_NAME="${STEM}.zip"
-
-          cp "$APK_SOURCE" "dist/$APK_NAME"
-          (cd dist && zip -q "$ZIP_NAME" "$APK_NAME")
-
-          test -s "dist/$APK_NAME"
-          test -s "dist/$ZIP_NAME"
-
-          unzip -l "dist/$ZIP_NAME"
-          unzip -t "dist/$ZIP_NAME"
-
-          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
-
-      - name: Upload named ZIP and standalone APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.package.outputs.zip_name }}
-          path: |
-            dist/${{ steps.package.outputs.zip_name }}
-            dist/${{ steps.package.outputs.apk_name }}
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Commit successful build tag
-        if: success()
-        shell: bash
-        env:
-          BUILD_TAG: ${{ steps.build_meta.outputs.tag }}
-        run: |
-          set -euo pipefail
-
-          if git rev-parse -q --verify "refs/tags/$BUILD_TAG" >/dev/null; then
-            echo "Build tag already exists; retaining the existing successful-build number."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-            git tag -a "$BUILD_TAG" -m "Successful Nexus3D Diagnostics build $BUILD_TAG"
-            git push origin "refs/tags/$BUILD_TAG"
-          fi
-
-      - name: Remove temporary signing keystore
-        if: always()
-        shell: bash
-        run: rm -f "$ANDROID_KEYSTORE_PATH"
- | sort -V | tail -n 1 || true)"
-
-              if [ -n "$LAST_TAG" ]; then
-                LAST_NUMBER="${LAST_TAG#diagnostics-build-}"
-                BUILD_NUMBER=$((LAST_NUMBER + 1))
-              else
-                BUILD_NUMBER=1
-              fi
-            fi
-          fi
-
-          VERSION_NAME="$(printf '1.0.%02d' "$BUILD_NUMBER")"
-          STEM="Nexus3D _Diagnostics_Build${BUILD_NUMBER}_v${VERSION_NAME}"
-
-          echo "number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
-          echo "stem=$STEM" >> "$GITHUB_OUTPUT"
-          echo "tag=diagnostics-build-$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-
-          echo "Preparing $STEM"
-
-      - name: Build signed Test APK
-        shell: bash
-        env:
-          BUILD_NUMBER: ${{ steps.build_meta.outputs.number }}
-        run: |
-          set -euo pipefail
-          gradle :app:assembleDebug -PdiagnosticsBuildNumber="$BUILD_NUMBER"
-
-      - name: Verify APK, package ID, version and signature
-        id: verify
-        shell: bash
-        env:
-          EXPECTED_VERSION: ${{ steps.build_meta.outputs.version_name }}
-        run: |
-          set -euo pipefail
-
-          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
-          test -n "$APK" || { echo "ERROR: APK file not found."; exit 1; }
-
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer | sort -V | tail -n 1)"
-
-          test -n "$APKSIGNER" || { echo "ERROR: apksigner not found."; exit 1; }
-          test -n "$APKANALYZER" || { echo "ERROR: apkanalyzer not found."; exit 1; }
-
-          "$APKSIGNER" verify --verbose "$APK"
-          "$APKSIGNER" verify --print-certs "$APK"
-
-          PACKAGE_INFO="$("$APKANALYZER" manifest application-id "$APK")"
-          VERSION_INFO="$("$APKANALYZER" manifest version-name "$APK")"
-          VERSION_CODE="$("$APKANALYZER" manifest version-code "$APK")"
-
-          test "$PACKAGE_INFO" = "com.nexus3d.diagnostics.debug"
-          test "$VERSION_INFO" = "$EXPECTED_VERSION"
-          test "$VERSION_CODE" -ge 26
-
-          echo "apk=$APK" >> "$GITHUB_OUTPUT"
-          echo "APK checks passed: $PACKAGE_INFO $VERSION_INFO ($VERSION_CODE)"
-
-      - name: Package APK with requested filename
-        id: package
-        shell: bash
-        env:
-          STEM: ${{ steps.build_meta.outputs.stem }}
-          APK_SOURCE: ${{ steps.verify.outputs.apk }}
-        run: |
-          set -euo pipefail
-
-          mkdir -p dist
-
-          APK_NAME="${STEM}.apk"
-          ZIP_NAME="${STEM}.zip"
-
-          cp "$APK_SOURCE" "dist/$APK_NAME"
-          (cd dist && zip -q "$ZIP_NAME" "$APK_NAME")
-
-          test -s "dist/$APK_NAME"
-          test -s "dist/$ZIP_NAME"
-
-          unzip -l "dist/$ZIP_NAME"
-          unzip -t "dist/$ZIP_NAME"
-
-          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
-
-      - name: Upload named ZIP and standalone APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.package.outputs.zip_name }}
-          path: |
-            dist/${{ steps.package.outputs.zip_name }}
-            dist/${{ steps.package.outputs.apk_name }}
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Commit successful build tag
-        if: success()
         shell: bash
         env:
           BUILD_TAG: ${{ steps.build_meta.outputs.tag }}
