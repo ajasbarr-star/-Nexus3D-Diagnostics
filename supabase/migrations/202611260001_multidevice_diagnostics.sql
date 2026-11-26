@@ -122,7 +122,7 @@ returns integer
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
     v_archived_count integer;
 begin
@@ -139,7 +139,7 @@ begin
     get diagnostics v_archived_count = row_count;
     return v_archived_count;
 end;
-$;
+$$;
 
 revoke all on function public.archive_stale_nexus3d_devices(integer) from public, anon, authenticated;
 grant execute on function public.archive_stale_nexus3d_devices(integer) to service_role;
