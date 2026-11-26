@@ -23,7 +23,8 @@ class DiagnosticBridgeProvider : ContentProvider() {
             requireNotNull(context).applicationContext,
             DiagnosticsDatabase::class.java,
             "nexus3d-diagnostics.db"
-        ).build()
+        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2)
+            .build()
     }
 
     override fun onCreate(): Boolean = true
@@ -58,6 +59,12 @@ class DiagnosticBridgeProvider : ContentProvider() {
             val details = item.optString("details")
             val sessionId = item.optString("sessionId").takeIf { it.isNotBlank() }
             val timestamp = item.optLong("timestampEpochMs", System.currentTimeMillis())
+            val eventId = item.optString("eventId").takeIf { it.isNotBlank() }
+                ?: java.util.UUID.randomUUID().toString()
+            val deviceId = item.optString("deviceId").takeIf { it.isNotBlank() }
+                ?: "local-bridge-unknown"
+            val sequence = item.optLong("sequence", timestamp)
+            val schemaVersion = item.optInt("schemaVersion", 1)
 
             if (source !in ALLOWED_SOURCES) throw IllegalArgumentException("Unsupported event source")
             if (severity !in ALLOWED_SEVERITIES) throw IllegalArgumentException("Unsupported event severity")
@@ -71,7 +78,11 @@ class DiagnosticBridgeProvider : ContentProvider() {
                 title = title,
                 details = details,
                 sessionId = sessionId,
-                createdAtEpochMs = timestamp
+                createdAtEpochMs = timestamp,
+                eventId = eventId,
+                deviceId = deviceId,
+                sequence = sequence,
+                schemaVersion = schemaVersion
             )
         }
 
