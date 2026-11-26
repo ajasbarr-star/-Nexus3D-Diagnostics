@@ -24,6 +24,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun DeviceInventoryScreen(
@@ -38,6 +45,7 @@ fun DeviceInventoryScreen(
     val scope = rememberCoroutineScope()
 
     fun refresh() {
+        if (loading) return
         scope.launch {
             loading = true
             error = null
@@ -53,7 +61,10 @@ fun DeviceInventoryScreen(
     }
 
     LaunchedEffect(Unit) {
-        refresh()
+        while (true) {
+            refresh()
+            delay(15_000L)
+        }
     }
 
     Column(
@@ -108,12 +119,54 @@ fun DeviceInventoryScreen(
                         Text("Android: ${device.androidVersion.ifBlank { "Not reported" }}")
                         Text("Nexus3D: ${device.appVersion} • Build ${device.buildNumber?.toString() ?: "—"}")
                         Text("Version Code: ${device.versionCode?.toString() ?: "—"}")
+                        val online = isDevicePresenceOnline(device.presenceState, device.lastActiveAt)
+                        Text(
+                            if (online) "Presence: ONLINE" else "Presence: OFFLINE",
+                            color = if (online) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.titleSmall
+                        )
                         Text("Registration: ${device.registrationMethod}")
                         Text("Status: ${device.status}")
-                        Text("Last seen: ${device.lastSeenAt}")
+                        Text("Last Seen: ${formatLastActive(device.lastActiveAt)}")
                     }
                 }
             }
         }
     }
+}
+
+
+private fun isDevicePresenceOnline(state: String, lastActiveAt: String?): Boolean {
+    if (!state.equals("online", ignoreCase = true) || lastActiveAt.isNullOrBlank()) return false
+    val activeAt = runCatching { Instant.parse(lastActiveAt) }.getOrNull() ?: return false
+    val ageSeconds = Duration.between(activeAt, Instant.now()).seconds
+    return ageSeconds in -60..120
+}
+
+private fun formatLastActive(value: String?): String {
+    if (value.isNullOrBlank()) return "Not yet active"
+    val instant = runCatching { Instant.parse(value) }.getOrNull() ?: return "Not available"
+    val now = Instant.now()
+    val seconds = Duration.between(instant, now).seconds.coerceAtLeast(0)
+    if (seconds < 60) return "Just now"
+    if (seconds < 3_600) {
+        val minutes = seconds / 60
+        return if (minutes == 1L) "1 minute ago" else "$minutes minutes ago"
+    }
+    if (seconds < 86_400) {
+        val hours = seconds / 3_600
+        return if (hours == 1L) "1 hour ago" else "$hours hours ago"
+    }
+
+    val zone = ZoneId.systemDefault()
+    val localTime = instant.atZone(zone)
+    val today = LocalDate.now(zone)
+    val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
+    if (localTime.toLocalDate() == today.minusDays(1)) {
+        return "Yesterday at ${localTime.format(timeFormatter)}"
+    }
+    if (localTime.toLocalDate().isAfter(today.minusDays(7))) {
+        return localTime.format(DateTimeFormatter.ofPattern("EEE 'at' h:mm a", Locale.US))
+    }
+    return localTime.format(DateTimeFormatter.ofPattern("MM-dd-yyyy", Locale.US))
 }
