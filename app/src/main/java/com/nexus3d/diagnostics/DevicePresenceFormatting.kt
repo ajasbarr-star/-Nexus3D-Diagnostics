@@ -37,7 +37,7 @@ internal fun formatLastActive(
     }
 
     val localTime = instant.atZone(zone)
-    val today = LocalDate.now(now.atZone(zone))
+    val today = now.atZone(zone).toLocalDate()
     val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
     if (localTime.toLocalDate() == today.minusDays(1)) {
         return "Yesterday at ${localTime.format(timeFormatter)}"
