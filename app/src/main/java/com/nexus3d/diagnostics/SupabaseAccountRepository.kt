@@ -115,7 +115,7 @@ class SupabaseAccountRepository(context: Context) {
                 ?: error("Session refresh failed. Please sign in again.")
         }
 
-        val connection = (URL(SUPABASE_URL + "/rest/v1/devices?select=id,installation_id,device_name,manufacturer,model,android_version,app_version,app_build_number,app_version_code,status,registration_method,created_at,last_seen_at&order=last_seen_at.desc")
+        val connection = (URL(SUPABASE_URL + "/rest/v1/devices?select=id,installation_id,device_name,manufacturer,model,android_version,app_version,app_build_number,app_version_code,status,registration_method,created_at,last_seen_at,presence_state,last_active_at&order=last_active_at.desc.nullslast,last_seen_at.desc")
             .openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 15_000
@@ -143,7 +143,9 @@ class SupabaseAccountRepository(context: Context) {
                     versionCode = if (row.isNull("app_version_code")) null else row.optLong("app_version_code"),
                     status = row.optString("status", "unknown"),
                     registrationMethod = row.optString("registration_method", "enrollment"),
-                    lastSeenAt = row.optString("last_seen_at")
+                    lastSeenAt = row.optString("last_seen_at"),
+                    presenceState = row.optString("presence_state", "offline"),
+                    lastActiveAt = row.optString("last_active_at").takeUnless { it.isBlank() || it == "null" }
                 )
             }
         } finally {
@@ -219,5 +221,7 @@ data class RegisteredDevice(
     val versionCode: Long?,
     val status: String,
     val registrationMethod: String,
-    val lastSeenAt: String
+    val lastSeenAt: String,
+    val presenceState: String,
+    val lastActiveAt: String?
 )
