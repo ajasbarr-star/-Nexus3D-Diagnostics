@@ -43,9 +43,12 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private lateinit var database: DiagnosticsDatabase
+    private lateinit var cloudAccountRepository: SupabaseAccountRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        cloudAccountRepository = SupabaseAccountRepository(applicationContext)
 
         database = Room.databaseBuilder(
             applicationContext,
@@ -56,7 +59,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    DiagnosticsHome(database)
+                    DiagnosticsHome(database, cloudAccountRepository)
                 }
             }
         }
@@ -68,7 +71,7 @@ private enum class DiagnosticsScreen {
 }
 
 @Composable
-private fun DiagnosticsHome(database: DiagnosticsDatabase) {
+private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository) {
     val events by database.eventDao().observeAll().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
 
@@ -135,6 +138,12 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         when (screen) {
+            DiagnosticsScreen.CLOUD_ACCOUNT -> {
+                CloudAccountScreen(cloudAccountRepository) {
+                    screen = DiagnosticsScreen.HOME
+                }
+            }
+
             DiagnosticsScreen.HOME -> {
                 Text(
                     "Nexus3D Diagnostics",
@@ -204,6 +213,13 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase) {
                     screen = DiagnosticsScreen.RIT_TRACE
                 }
 
+                ToolCard(
+                    "Add Device / Cloud Account",
+                    "Sign in and generate a 10-minute enrollment code"
+                ) {
+                    screen = DiagnosticsScreen.CLOUD_ACCOUNT
+                }
+
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = {
@@ -236,7 +252,7 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase) {
                 }
 
                 Text(
-                    "Cloud sync: not configured • No data is uploaded",
+                    "Cloud account: sign in to pair devices • Upload remains opt-in",
                     style = MaterialTheme.typography.labelSmall
                 )
             }
