@@ -87,6 +87,11 @@ create trigger on_auth_user_created_nexus3d_workspace
 after insert on auth.users
 for each row execute function public.create_nexus3d_workspace();
 
+-- Also provision workspaces for accounts that existed before this migration.
+insert into public.workspaces(owner_id)
+select id from auth.users
+on conflict (owner_id) do nothing;
+
 -- Atomic one-time enrollment-code consumption; only service-role Edge Functions call this.
 create or replace function public.consume_nexus3d_enrollment_code(p_code_hash text)
 returns uuid
@@ -109,6 +114,35 @@ $$;
 
 revoke all on function public.consume_nexus3d_enrollment_code(text) from public, anon, authenticated;
 grant execute on function public.consume_nexus3d_enrollment_code(text) to service_role;
+
+-- Archive inactive installations after the configured grace period.
+-- Reports remain untouched; archived credentials are rejected by ingest-events.
+create or replace function public.archive_stale_nexus3d_devices(p_inactive_days integer default 30)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+    v_archived_count integer;
+begin
+    if p_inactive_days < 7 or p_inactive_days > 365 then
+        raise exception 'p_inactive_days must be between 7 and 365';
+    end if;
+
+    update public.devices
+       set status = 'archived',
+           archived_at = now()
+     where status = 'active'
+       and last_seen_at < now() - make_interval(days => p_inactive_days);
+
+    get diagnostics v_archived_count = row_count;
+    return v_archived_count;
+end;
+$;
+
+revoke all on function public.archive_stale_nexus3d_devices(integer) from public, anon, authenticated;
+grant execute on function public.archive_stale_nexus3d_devices(integer) to service_role;
 
 alter table public.workspaces enable row level security;
 alter table public.devices enable row level security;
