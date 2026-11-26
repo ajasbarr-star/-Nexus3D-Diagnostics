@@ -53,19 +53,6 @@ class MainActivity : ComponentActivity() {
             "nexus3d-diagnostics.db"
         ).build()
 
-        lifecycleScope.launch {
-            if (database.eventDao().count() == 0) {
-                database.eventDao().insert(
-                    DiagnosticEvent(
-                        source = "SYSTEM",
-                        severity = "INFO",
-                        title = "Diagnostics is ready",
-                        details = "Local offline storage initialized. Waiting for diagnostic events."
-                    )
-                )
-            }
-        }
-
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
