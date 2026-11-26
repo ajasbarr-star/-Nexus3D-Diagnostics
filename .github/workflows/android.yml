@@ -7,6 +7,7 @@ on:
       - main
       - feature/nexus3d-editor-diagnostics-bridge
       - feature/nd-supabase-multidevice-phase1
+      - feature/automatic-device-release-beta-management
   workflow_dispatch:
 
 concurrency:
