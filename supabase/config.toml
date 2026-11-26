@@ -17,3 +17,7 @@ verify_jwt = false
 
 [functions.report-installation]
 verify_jwt = false
+
+# Presence requests authenticate with the per-installation device credential.
+[functions.device-presence]
+verify_jwt = false
