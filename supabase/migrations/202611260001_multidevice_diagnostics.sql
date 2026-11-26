@@ -59,8 +59,7 @@ create table if not exists public.diagnostic_reports (
     details text not null default '' check (char_length(details) <= 24000),
     occurred_at timestamptz not null,
     received_at timestamptz not null default now(),
-    unique (device_id, event_id),
-    unique (device_id, session_id, sequence)
+    unique (device_id, event_id)
 );
 
 create index if not exists diagnostic_reports_device_time_idx
@@ -140,6 +139,6 @@ create policy "owners read own reports" on public.diagnostic_reports
     );
 
 -- No direct client writes or reads of device credentials/enrollment secrets.
-revoke all on public.device_tokens from anon, authenticated;
-revoke all on public.enrollment_codes from anon, authenticated;
+revoke all on public.workspaces, public.devices, public.device_tokens,
+    public.enrollment_codes, public.diagnostic_reports from anon, authenticated;
 grant select on public.workspaces, public.devices, public.diagnostic_reports to authenticated;
