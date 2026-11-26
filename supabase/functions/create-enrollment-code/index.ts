@@ -31,7 +31,7 @@ Deno.serve(async (req: Request) => {
   // where a previous provisioning attempt did not complete).
   if (workspaceError) {
     console.error("workspace_lookup_failed", workspaceError);
-    return jsonResponse({ error: "workspace_lookup_failed" }, 500);
+    return jsonResponse({ error: `workspace_lookup_failed (DB code: ${workspaceError.code ?? "unknown"})` }, 500);
   }
 
   if (!workspace) {
