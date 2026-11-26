@@ -21,12 +21,41 @@ Deno.serve(async (req: Request) => {
   if (userError || !userData.user) return jsonResponse({ error: "unauthorized" }, 401);
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-  const { data: workspace, error: workspaceError } = await admin
+  let { data: workspace, error: workspaceError } = await admin
     .from("workspaces")
     .select("id")
     .eq("owner_id", userData.user.id)
     .maybeSingle();
-  if (workspaceError || !workspace) return jsonResponse({ error: "workspace_not_found" }, 404);
+
+  // Repair accounts created before the workspace trigger was installed (or
+  // where a previous provisioning attempt did not complete).
+  if (workspaceError) {
+    console.error("workspace_lookup_failed", workspaceError);
+    return jsonResponse({ error: "workspace_lookup_failed" }, 500);
+  }
+
+  if (!workspace) {
+    const { error: provisionError } = await admin
+      .from("workspaces")
+      .insert({ owner_id: userData.user.id, name: "Nexus3D Workspace" });
+
+    if (provisionError && provisionError.code !== "23505") {
+      console.error("workspace_provision_failed", provisionError);
+      return jsonResponse({ error: "workspace_provision_failed" }, 500);
+    }
+
+    const repaired = await admin
+      .from("workspaces")
+      .select("id")
+      .eq("owner_id", userData.user.id)
+      .single();
+
+    if (repaired.error || !repaired.data) {
+      console.error("workspace_recheck_failed", repaired.error);
+      return jsonResponse({ error: "workspace_provision_failed" }, 500);
+    }
+    workspace = repaired.data;
+  }
 
   const codeBytes = crypto.getRandomValues(new Uint8Array(24));
   const code = Array.from(codeBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
