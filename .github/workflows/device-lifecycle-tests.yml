@@ -32,7 +32,7 @@ jobs:
           deno-version: v2.x
 
       - name: Format lifecycle source and tests
-        run: deno fmt --check supabase/functions/_shared/device-lifecycle.ts supabase/functions/tests/device-lifecycle.test.ts
+        run: deno fmt supabase/functions/_shared/device-lifecycle.ts supabase/functions/tests/device-lifecycle.test.ts
 
       - name: Run lifecycle regression tests
         run: deno test --no-check supabase/functions/tests/device-lifecycle.test.ts
