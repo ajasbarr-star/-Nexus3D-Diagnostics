@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/nexus3d-editor-diagnostics-bridge
   workflow_dispatch:
 
 concurrency:
