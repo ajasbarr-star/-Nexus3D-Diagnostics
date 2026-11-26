@@ -24,12 +24,12 @@ This folder contains the first multi-device backend foundation. It is separate f
 
 - Installation IDs are random UUIDs stored in app-private persistent storage; ordinary app updates retain them. Uninstall/reinstall creates a new ID.
 - Device tokens are installation-specific and revocable.
-- Archiving must not delete reports. The inactivity grace period and archive job will be added with the device-management phase; offline devices must not be archived immediately.
+- Archiving must not delete reports. The migration provides `archive_stale_nexus3d_devices(30)` with a 30-day default grace period and a 7–365 day safety bound. Schedule it with Supabase Cron after deployment; offline devices are not archived immediately.
 - Android cannot reliably notify the backend at the exact instant an app is uninstalled. Archive status is inferred from last-seen after the configured grace period.
 
 ## Report contract (schema version 1)
 
-Each event contains `eventId`, `sessionId`, `sequence`, `schemaVersion`, `source`, `severity`, `title`, `details`, and `timestamp`. Event IDs make retries idempotent. Sender-side durable outbox and acknowledgement deletion are implemented in the Android integration phase.
+Each event contains `eventId`, `sessionId`, `sequence`, `schemaVersion`, `source`, `severity`, `title`, `details`, and `timestamp`. Event IDs make retries idempotent. Sender-side durable outbox, Android-side device-token storage, cloud report retrieval, and owner sign-in UI remain the next Android integration phase. The current APK build only adds local event metadata and the Room migration; it does not yet upload or download reports.
 
 ## Important
 
