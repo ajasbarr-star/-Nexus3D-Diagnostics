@@ -1,0 +1,38 @@
+name: Nexus3D Device Lifecycle Tests
+
+on:
+  pull_request:
+    branches:
+      - feature/nd-supabase-multidevice-phase1
+      - feature/automatic-device-release-beta-management
+    paths:
+      - 'supabase/functions/**'
+      - '.github/workflows/device-lifecycle-tests.yml'
+  push:
+    branches:
+      - feature/automatic-device-release-beta-management
+    paths:
+      - 'supabase/functions/**'
+      - '.github/workflows/device-lifecycle-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  device-lifecycle:
+    name: Device lifecycle regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout diagnostics source
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Format lifecycle source and tests
+        run: deno fmt --check supabase/functions/_shared/device-lifecycle.ts supabase/functions/tests/device-lifecycle.test.ts
+
+      - name: Run lifecycle regression tests
+        run: deno test --no-check supabase/functions/tests/device-lifecycle.test.ts
