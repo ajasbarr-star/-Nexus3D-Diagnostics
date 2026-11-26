@@ -29,6 +29,7 @@ Deno.serve(async (req: Request) => {
   const { data: existing, error: lookupError } = await admin.from("devices").select("id, installation_id, device_name, status").eq("installation_id", installationId).maybeSingle();
   if (lookupError) return jsonResponse({ error: "device_lookup_failed" }, 500);
   if (existing) {
+    if (existing.status === "revoked") return jsonResponse({ error: "installation_revoked" }, 403);
     const { data: credential } = await admin.from("device_tokens").select("token_hash, revoked_at").eq("device_id", existing.id).maybeSingle();
     if (!credential || credential.revoked_at || credential.token_hash !== tokenHash) return jsonResponse({ error: "installation_identity_conflict" }, 409);
     const { data: updated, error } = await admin.from("devices").update({
