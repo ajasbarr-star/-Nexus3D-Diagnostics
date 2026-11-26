@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse, sha256Hex, isUuid } from "../_shared/http.ts";
+import { validateInstallationReactivation } from "../_shared/device-lifecycle.ts";
 const clean = (v: unknown, max = 120) => typeof v === "string" ? v.trim().slice(0, max) : "";
 
 Deno.serve(async (req: Request) => {
@@ -29,9 +30,14 @@ Deno.serve(async (req: Request) => {
   const { data: existing, error: lookupError } = await admin.from("devices").select("id, installation_id, device_name, status").eq("installation_id", installationId).maybeSingle();
   if (lookupError) return jsonResponse({ error: "device_lookup_failed" }, 500);
   if (existing) {
-    if (existing.status === "revoked") return jsonResponse({ error: "installation_revoked" }, 403);
     const { data: credential } = await admin.from("device_tokens").select("token_hash, revoked_at").eq("device_id", existing.id).maybeSingle();
-    if (!credential || credential.revoked_at || credential.token_hash !== tokenHash) return jsonResponse({ error: "installation_identity_conflict" }, 409);
+    const reactivation = validateInstallationReactivation(
+      existing.status,
+      credential ? { tokenHash: credential.token_hash, revokedAt: credential.revoked_at } : null,
+      tokenHash,
+    );
+    if (reactivation === "installation_revoked") return jsonResponse({ error: "installation_revoked" }, 403);
+    if (reactivation === "identity_conflict") return jsonResponse({ error: "installation_identity_conflict" }, 409);
     const { data: updated, error } = await admin.from("devices").update({
       manufacturer, model, android_version: androidVersion, app_version: appVersion,
       app_build_number: buildNumber, app_version_code: versionCode,
