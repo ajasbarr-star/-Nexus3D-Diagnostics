@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class DiagnosticsScreen {
-    HOME, EVENTS, RDS_LOGCAT, RIT_TRACE, EVENT_DETAILS, CLOUD_ACCOUNT
+    HOME, EVENTS, RDS_LOGCAT, RIT_TRACE, EVENT_DETAILS, CLOUD_ACCOUNT, DEVICE_INVENTORY
 }
 
 @Composable
@@ -144,6 +144,14 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                 }
             }
 
+            DiagnosticsScreen.DEVICE_INVENTORY -> {
+                DeviceInventoryScreen(
+                    repository = cloudAccountRepository,
+                    onBack = { screen = DiagnosticsScreen.HOME },
+                    onOpenCloudAccount = { screen = DiagnosticsScreen.CLOUD_ACCOUNT }
+                )
+            }
+
             DiagnosticsScreen.HOME -> {
                 Text(
                     "Nexus3D Diagnostics",
@@ -218,6 +226,13 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                     "Sign in and generate a 10-minute enrollment code"
                 ) {
                     screen = DiagnosticsScreen.CLOUD_ACCOUNT
+                }
+
+                ToolCard(
+                    "Device Inventory",
+                    "View registered Nexus3D Editor installations"
+                ) {
+                    screen = DiagnosticsScreen.DEVICE_INVENTORY
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
