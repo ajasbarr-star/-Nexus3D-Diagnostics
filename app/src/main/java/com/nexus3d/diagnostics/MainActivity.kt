@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
             applicationContext,
             DiagnosticsDatabase::class.java,
             "nexus3d-diagnostics.db"
-        ).build()
+        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2).build()
 
         setContent {
             MaterialTheme {
@@ -376,7 +376,11 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase) {
 
                         Text("Source: ${event.source}")
                         Text("Severity: ${event.severity}")
-                        Text("Event ID: ${event.id}")
+                        Text("Local Record ID: ${event.id}")
+                        Text("Event ID: ${event.eventId}")
+                        Text("Device ID: ${event.deviceId}")
+                        Text("Sequence: ${event.sequence}")
+                        Text("Schema Version: ${event.schemaVersion}")
                         Text("Timestamp: ${formatTimestamp(event.createdAtEpochMs)}")
 
                         event.sessionId?.let {
