@@ -77,11 +77,11 @@ jobs:
           set -euo pipefail
 
           if [ "$GITHUB_REF_NAME" = "feature/automatic-device-release-beta-management" ]; then
-            # Feature-branch builds use the unique Actions run number. This avoids
-            # requiring workflow-file write permission just to push a Git tag.
+            # Use the unique GitHub Actions run number on this feature branch.
             BUILD_NUMBER="$GITHUB_RUN_NUMBER"
           else
             EXISTING_TAG="$(git tag --points-at HEAD | grep -E '^diagnostics-build-[0-9]+
+
           VERSION_NAME="$(printf '1.0.%02d' "$BUILD_NUMBER")"
           STEM="Nexus3D _Diagnostics_Build${BUILD_NUMBER}_v${VERSION_NAME}"
 
@@ -195,6 +195,7 @@ jobs:
               BUILD_NUMBER="${EXISTING_TAG#diagnostics-build-}"
             else
               LAST_TAG="$(git tag -l 'diagnostics-build-*' | grep -E '^diagnostics-build-[0-9]+
+
           VERSION_NAME="$(printf '1.0.%02d' "$BUILD_NUMBER")"
           STEM="Nexus3D _Diagnostics_Build${BUILD_NUMBER}_v${VERSION_NAME}"
 
