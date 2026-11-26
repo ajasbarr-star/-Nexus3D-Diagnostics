@@ -98,6 +98,11 @@ jobs:
           echo "stem=$STEM" >> "$GITHUB_OUTPUT"
           echo "tag=diagnostics-build-$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "Preparing $STEM"
+      - name: Run Device Inventory presence formatter tests
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: gradle :app:testDebugUnitTest -PdiagnosticsBuildNumber="$BUILD_NUMBER"
+
       - name: Build signed Test APK
         shell: bash
         env:
