@@ -2,6 +2,12 @@ name: Deploy Nexus3D Diagnostics Edge Functions
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/nd-supabase-multidevice-phase1
+    paths:
+      - 'supabase/functions/**'
+      - '.github/workflows/deploy-supabase-edge-functions.yml'
 
 permissions:
   contents: read
