@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feature/nexus3d-editor-diagnostics-bridge
+      - feature/nd-supabase-multidevice-phase1
   workflow_dispatch:
 
 concurrency:

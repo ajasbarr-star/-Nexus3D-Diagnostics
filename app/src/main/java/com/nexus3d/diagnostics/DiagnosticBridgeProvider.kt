@@ -23,7 +23,8 @@ class DiagnosticBridgeProvider : ContentProvider() {
             requireNotNull(context).applicationContext,
             DiagnosticsDatabase::class.java,
             "nexus3d-diagnostics.db"
-        ).build()
+        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2)
+            .build()
     }
 
     override fun onCreate(): Boolean = true
@@ -58,7 +59,19 @@ class DiagnosticBridgeProvider : ContentProvider() {
             val details = item.optString("details")
             val sessionId = item.optString("sessionId").takeIf { it.isNotBlank() }
             val timestamp = item.optLong("timestampEpochMs", System.currentTimeMillis())
+            val eventId = item.optString("eventId").takeIf { it.isNotBlank() }
+                ?: java.util.UUID.randomUUID().toString()
+            val deviceId = item.optString("deviceId").takeIf { it.isNotBlank() }
+                ?: "local-bridge-unknown"
+            val sequence = item.optLong("sequence", timestamp)
+            val schemaVersion = item.optInt("schemaVersion", 1)
 
+            if (!isUuid(eventId)) throw IllegalArgumentException("Invalid event ID")
+            if (deviceId != "local-bridge-unknown" && !isUuid(deviceId)) {
+                throw IllegalArgumentException("Invalid device ID")
+            }
+            if (sequence < 0L) throw IllegalArgumentException("Invalid event sequence")
+            if (schemaVersion != 1) throw IllegalArgumentException("Unsupported event schema version")
             if (source !in ALLOWED_SOURCES) throw IllegalArgumentException("Unsupported event source")
             if (severity !in ALLOWED_SEVERITIES) throw IllegalArgumentException("Unsupported event severity")
             if (title.isBlank() || title.length > 240) throw IllegalArgumentException("Invalid event title")
@@ -71,7 +84,11 @@ class DiagnosticBridgeProvider : ContentProvider() {
                 title = title,
                 details = details,
                 sessionId = sessionId,
-                createdAtEpochMs = timestamp
+                createdAtEpochMs = timestamp,
+                eventId = eventId,
+                deviceId = deviceId,
+                sequence = sequence,
+                schemaVersion = schemaVersion
             )
         }
 
@@ -105,7 +122,10 @@ class DiagnosticBridgeProvider : ContentProvider() {
         private const val MAX_BATCH_SIZE = 20
         private const val MAX_PAYLOAD_CHARS = 128 * 1024
         private const val MAX_DETAILS_CHARS = 2400
-        private val ALLOWED_SOURCES = setOf("RDS_LOGCAT", "RIT_TRACE")
+        private val ALLOWED_SOURCES = setOf("RDS_LOGCAT", "RIT_TRACE", "RUNTIME")
+
+        private fun isUuid(value: String): Boolean =
+            runCatching { java.util.UUID.fromString(value) }.isSuccess
         private val ALLOWED_SEVERITIES = setOf("VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL")
     }
 }

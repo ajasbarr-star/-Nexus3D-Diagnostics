@@ -1,0 +1,10 @@
+project_id = "nexus3d-diagnostics"
+
+[functions.create-enrollment-code]
+verify_jwt = true
+
+[functions.register-device]
+verify_jwt = false
+
+[functions.ingest-events]
+verify_jwt = false
