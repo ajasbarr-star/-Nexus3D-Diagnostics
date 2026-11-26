@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.ingest-events]
 verify_jwt = false
+
+# These endpoints authenticate each installation using its per-installation
+# credential inside the function. Supabase gateway JWT verification is disabled
+# because the Editor APK has no end-user Supabase session.
+[functions.auto-register-device]
+verify_jwt = false
+
+[functions.report-installation]
+verify_jwt = false
