@@ -115,7 +115,7 @@ class SupabaseAccountRepository(context: Context) {
                 ?: error("Session refresh failed. Please sign in again.")
         }
 
-        val connection = (URL(SUPABASE_URL + "/rest/v1/devices?select=id,installation_id,device_name,manufacturer,model,android_version,app_version,app_build_number,app_version_code,status,registration_method,created_at,last_seen_at,presence_state,last_active_at&order=last_active_at.desc.nullslast,last_seen_at.desc")
+        val connection = (URL(SUPABASE_URL + "/rest/v1/devices?select=id,installation_id,device_name,manufacturer,model,android_version,app_version,app_build_number,app_version_code,status,registration_method,created_at,last_seen_at,presence_state,last_active_at&status=eq.active&order=last_active_at.desc.nullslast,last_seen_at.desc")
             .openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 15_000
