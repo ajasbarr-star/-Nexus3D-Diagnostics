@@ -39,7 +39,10 @@ Deno.serve(async (req: Request) => {
   for (const raw of body.events) {
     if (!raw || typeof raw !== "object") return jsonResponse({ error: "invalid_event" }, 400);
     const event = raw as Record<string, unknown>;
-    if (!isUuid(event.eventId) || !isUuid(event.sessionId)) return jsonResponse({ error: "invalid_event_or_session_id" }, 400);
+    if (!isUuid(event.eventId)) return jsonResponse({ error: "invalid_event_id" }, 400);
+    if (typeof event.sessionId !== "string" || event.sessionId.trim().length < 1 || event.sessionId.length > 128) {
+      return jsonResponse({ error: "invalid_session_id" }, 400);
+    }
     if (!Number.isSafeInteger(event.sequence) || Number(event.sequence) < 0) return jsonResponse({ error: "invalid_sequence" }, 400);
     if (event.schemaVersion !== 1) return jsonResponse({ error: "unsupported_schema_version" }, 400);
     if (typeof event.source !== "string" || !allowedSources.has(event.source)) return jsonResponse({ error: "invalid_source" }, 400);
