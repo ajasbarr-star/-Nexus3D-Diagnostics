@@ -1,0 +1,153 @@
+package com.nexus3d.diagnostics
+
+import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+
+data class EnrollmentCode(
+    val code: String,
+    val expiresAt: String,
+    val expiresInSeconds: Int
+)
+
+class SupabaseAccountRepository(context: Context) {
+    companion object {
+        private const val SUPABASE_URL = "https://rupftghvjmalntjoesnv.supabase.co"
+        private const val SUPABASE_KEY = "sb_publishable_t3-BF5smZ21bzc59TVrYIw_4MHGG3Dq"
+        private const val PREFS = "nexus3d_cloud_auth"
+        private const val ACCESS = "access_token"
+        private const val REFRESH = "refresh_token"
+        private const val EXPIRES = "expires_at"
+    }
+
+    private val preferences by lazy {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            PREFS,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+    fun hasSession(): Boolean = !preferences.getString(ACCESS, null).isNullOrBlank() &&
+        !preferences.getString(REFRESH, null).isNullOrBlank()
+
+    suspend fun signUp(email: String, password: String): String = withContext(Dispatchers.IO) {
+        val result = request(
+            path = "/auth/v1/signup",
+            method = "POST",
+            body = JSONObject().put("email", email.trim()).put("password", password)
+        )
+        saveSessionIfPresent(result)
+        if (result.optString("access_token").isBlank()) {
+            "Account created. Check your email to confirm it, then sign in here."
+        } else {
+            "Account created and signed in."
+        }
+    }
+
+    suspend fun signIn(email: String, password: String) = withContext(Dispatchers.IO) {
+        val result = request(
+            path = "/auth/v1/token?grant_type=password",
+            method = "POST",
+            body = JSONObject().put("email", email.trim()).put("password", password)
+        )
+        saveSessionIfPresent(result)
+        if (!hasSession()) error("Sign-in did not return a valid session. Confirm your email, then try again.")
+    }
+
+    suspend fun createEnrollmentCode(): EnrollmentCode = withContext(Dispatchers.IO) {
+        var accessToken = preferences.getString(ACCESS, null)
+            ?: error("Please sign in first.")
+        val expiresAtMillis = preferences.getLong(EXPIRES, 0L)
+        if (System.currentTimeMillis() >= expiresAtMillis - 60_000L) {
+            val refreshToken = preferences.getString(REFRESH, null)
+                ?: error("Your session expired. Please sign in again.")
+            val refreshed = request(
+                path = "/auth/v1/token?grant_type=refresh_token",
+                method = "POST",
+                body = JSONObject().put("refresh_token", refreshToken)
+            )
+            saveSessionIfPresent(refreshed)
+            accessToken = preferences.getString(ACCESS, null)
+                ?: error("Session refresh failed. Please sign in again.")
+        }
+
+        val result = request(
+            path = "/functions/v1/create-enrollment-code",
+            method = "POST",
+            body = JSONObject(),
+            bearer = accessToken
+        )
+        val code = result.optString("code")
+        val expiresAt = result.optString("expiresAt")
+        if (code.length != 48 || expiresAt.isBlank()) {
+            error("The server returned an invalid enrollment code response.")
+        }
+        EnrollmentCode(code, expiresAt, result.optInt("expiresInSeconds", 600))
+    }
+
+    fun signOut() {
+        preferences.edit().clear().apply()
+    }
+
+    private fun saveSessionIfPresent(json: JSONObject) {
+        val access = json.optString("access_token")
+        val refresh = json.optString("refresh_token")
+        if (access.isBlank() || refresh.isBlank()) return
+        val expiresIn = json.optLong("expires_in", 3600L).coerceAtLeast(60L)
+        preferences.edit()
+            .putString(ACCESS, access)
+            .putString(REFRESH, refresh)
+            .putLong(EXPIRES, System.currentTimeMillis() + expiresIn * 1000L)
+            .apply()
+    }
+
+    private fun request(
+        path: String,
+        method: String,
+        body: JSONObject,
+        bearer: String? = null
+    ): JSONObject {
+        val connection = (URL(SUPABASE_URL + path).openConnection() as HttpURLConnection).apply {
+            requestMethod = method
+            connectTimeout = 15_000
+            readTimeout = 20_000
+            setRequestProperty("apikey", SUPABASE_KEY)
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "application/json")
+            if (bearer != null) setRequestProperty("Authorization", "Bearer $bearer")
+            doOutput = true
+        }
+
+        try {
+            connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            val json = if (responseText.isBlank()) JSONObject() else JSONObject(responseText)
+            if (status !in 200..299) {
+                val message = json.optString("msg").ifBlank {
+                    json.optString("message").ifBlank {
+                        json.optString("error_description").ifBlank {
+                            json.optString("error").ifBlank { "Request failed (HTTP $status)." }
+                        }
+                    }
+                }
+                error(message)
+            }
+            return json
+        } finally {
+            connection.disconnect()
+        }
+    }
+}
