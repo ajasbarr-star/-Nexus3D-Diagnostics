@@ -7,6 +7,12 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
+        <provider
+            android:name=".DiagnosticBridgeProvider"
+            android:authorities="${applicationId}.bridge"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
