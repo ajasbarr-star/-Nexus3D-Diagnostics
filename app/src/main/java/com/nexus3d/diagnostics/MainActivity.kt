@@ -295,7 +295,7 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase) {
                 )
 
                 Text(
-                    "Editor LogCat capture is not connected yet. This screen does not generate or capture Editor logs by itself."
+                    "Incoming RDS LogCat events from the Nexus3D Editor are received through the local Android bridge and stored on this device. No cloud upload is performed."
                 )
 
                 val rdsEvents = events.filter {
@@ -334,7 +334,7 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase) {
                 )
 
                 Text(
-                    "Editor trace capture is not connected yet. This screen does not generate traces by itself."
+                    "Incoming RIT Trace events from the Nexus3D Editor are received through the local Android bridge and stored on this device. No cloud upload is performed."
                 )
 
                 val ritEvents = events.filter {
