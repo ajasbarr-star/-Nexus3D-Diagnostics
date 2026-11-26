@@ -50,7 +50,7 @@ create table if not exists public.diagnostic_reports (
     id uuid primary key default gen_random_uuid(),
     device_id uuid not null references public.devices(id) on delete restrict,
     event_id uuid not null,
-    session_id uuid not null,
+    session_id text not null check (char_length(session_id) between 1 and 128),
     sequence bigint not null check (sequence >= 0),
     schema_version integer not null check (schema_version >= 1),
     source text not null check (source in ('RDS_LOGCAT', 'RIT_TRACE', 'RUNTIME')),
