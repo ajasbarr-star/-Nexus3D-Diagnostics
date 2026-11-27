@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -142,7 +143,7 @@ fun ZipRecordsScreen(database: DiagnosticsDatabase, onBack: () -> Unit) {
 
 @Composable
 private fun ArchiveAction(label: String, description: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Card(Modifier.weight(1f).clickable(onClick = onClick)) {
+    Card(Modifier.fillMaxWidth(0.5f).clickable(onClick = onClick)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.primary)
             Text(label, style = MaterialTheme.typography.labelLarge)
@@ -153,7 +154,7 @@ private fun ArchiveAction(label: String, description: String, icon: androidx.com
 
 private suspend fun exportArchive(context: Context, database: DiagnosticsDatabase, destination: Uri): String {
     val events = database.eventDao().observeAll()
-    val snapshot = kotlinx.coroutines.flow.first(events)
+    val snapshot = events.first()
     val json = JSONArray()
     snapshot.forEach { event ->
         json.put(JSONObject().apply {
