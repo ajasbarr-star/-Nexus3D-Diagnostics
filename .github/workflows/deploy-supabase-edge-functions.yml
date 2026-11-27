@@ -59,7 +59,10 @@ jobs:
       - name: Apply additive Supabase schema migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase db push --linked --yes
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          test -n "$SUPABASE_DB_PASSWORD" || { echo "::error::Add SUPABASE_DB_PASSWORD as a GitHub Actions secret to apply the additive device metadata migration."; exit 1; }
+          supabase db push --linked --yes
 
       - name: Deploy create-enrollment-code
         env:
