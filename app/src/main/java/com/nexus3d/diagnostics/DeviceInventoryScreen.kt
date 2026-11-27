@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,7 +31,8 @@ import kotlinx.coroutines.delay
 fun DeviceInventoryScreen(
     repository: SupabaseAccountRepository,
     onBack: () -> Unit,
-    onOpenCloudAccount: () -> Unit
+    onOpenCloudAccount: () -> Unit,
+    inline: Boolean = false
 ) {
     var devices by remember { mutableStateOf<List<RegisteredDevice>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
@@ -65,10 +67,10 @@ fun DeviceInventoryScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxWidth().then(if (inline) Modifier else Modifier.fillMaxSize()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
+        if (!inline) Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -101,7 +103,7 @@ fun DeviceInventoryScreen(
             )
         }
         LazyColumn(
-            modifier = Modifier.weight(1f),
+            modifier = if (inline) Modifier.heightIn(max = 420.dp) else Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(devices, key = { it.id }) { device ->
