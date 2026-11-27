@@ -22,6 +22,18 @@ abstract class DiagnosticsDatabase : RoomDatabase() {
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                // Preserve all existing rows while repairing any duplicates created by
+                // the former check-then-insert implementation before enforcing uniqueness.
+                db.execSQL(
+                    "UPDATE diagnostic_events " +
+                        "SET details = '[MIGRATION: duplicate event ID repaired; original=' || eventId || ']\\n' || details, " +
+                        "eventId = 'legacy-duplicate-' || id || '-' || substr(eventId, 1, 36) " +
+                        "WHERE id NOT IN (" +
+                        "  SELECT MIN(id) FROM diagnostic_events GROUP BY deviceId, eventId" +
+                        ") AND (deviceId, eventId) IN (" +
+                        "  SELECT deviceId, eventId FROM diagnostic_events GROUP BY deviceId, eventId HAVING COUNT(*) > 1" +
+                        ")"
+                )
                 // A real SQLite constraint is the final guard against races between
                 // IPC ingestion, ZIP imports, and background sync workers.
                 db.execSQL(
