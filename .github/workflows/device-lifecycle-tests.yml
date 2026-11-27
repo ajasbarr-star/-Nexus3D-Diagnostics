@@ -7,6 +7,7 @@ on:
       - feature/automatic-device-release-beta-management
     paths:
       - 'supabase/functions/**'
+      - 'supabase/migrations/**'
       - '.github/workflows/device-lifecycle-tests.yml'
   push:
     branches:
@@ -33,6 +34,11 @@ jobs:
 
       - name: Format lifecycle source and tests
         run: deno fmt supabase/functions/_shared/device-lifecycle.ts supabase/functions/tests/device-lifecycle.test.ts
+
+      - name: Check Owner Admin Edge Function formatting and types
+        run: |
+          deno fmt --check supabase/functions/owner-admin/index.ts supabase/functions/create-enrollment-code/index.ts
+          deno check supabase/functions/owner-admin/index.ts supabase/functions/create-enrollment-code/index.ts
 
       - name: Run lifecycle regression tests
         run: deno test --no-check supabase/functions/tests/device-lifecycle.test.ts
