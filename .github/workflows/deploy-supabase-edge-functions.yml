@@ -51,10 +51,15 @@ jobs:
         run: |
           supabase secrets set "NEXUS3D_AUTO_ENROLL_WORKSPACE_ID=$NEXUS3D_AUTO_ENROLL_WORKSPACE_ID" --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
 
+      - name: Link approved Supabase project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+
       - name: Apply additive Supabase schema migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase db push --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
+        run: supabase db push --linked --yes
 
       - name: Deploy create-enrollment-code
         env:
