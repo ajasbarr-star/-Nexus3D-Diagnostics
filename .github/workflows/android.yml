@@ -9,6 +9,14 @@ on:
       - feature/nd-supabase-multidevice-phase1
       - feature/automatic-device-release-beta-management
       - repair/accurate-apk-connection-status
+  pull_request:
+    branches:
+      - feature/automatic-device-release-beta-management
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - '*.gradle*'
+      - '.github/workflows/android.yml'
   workflow_dispatch:
 
 concurrency:
@@ -180,7 +188,7 @@ jobs:
           retention-days: 30
 
       - name: Commit successful build tag
-        if: success() && github.ref_name != 'feature/automatic-device-release-beta-management'
+        if: success() && github.event_name != 'pull_request' && github.ref_name != 'feature/automatic-device-release-beta-management'
         shell: bash
         env:
           BUILD_TAG: ${{ steps.build_meta.outputs.tag }}
