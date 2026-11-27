@@ -97,6 +97,15 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
         run: gradle :app:testDebugUnitTest -PdiagnosticsBuildNumber="$BUILD_NUMBER"
 
+      - name: Run Android 13 cold-start and Owner Admin panel smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        with:
+          api-level: 33
+          arch: x86_64
+          script: gradle :app:connectedDebugAndroidTest -PdiagnosticsBuildNumber="$BUILD_NUMBER"
+
       - name: Build signed Test APK
         shell: bash
         env:
