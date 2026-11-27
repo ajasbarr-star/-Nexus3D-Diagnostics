@@ -2,6 +2,7 @@ package com.nexus3d.diagnostics
 
 import android.content.ContentProvider
 import android.content.ContentValues
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.os.Binder
@@ -12,10 +13,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.MessageDigest
 
 /**
  * Private-by-identity IPC endpoint for the Nexus3D Editor Test APK.
- * Every call validates the Binder caller UID against the Editor package.
+ * Every call validates the Binder caller UID, exact Editor package, and pinned signing certificate.
  */
 class DiagnosticBridgeProvider : ContentProvider() {
     private val database by lazy {
@@ -23,7 +25,10 @@ class DiagnosticBridgeProvider : ContentProvider() {
             requireNotNull(context).applicationContext,
             DiagnosticsDatabase::class.java,
             "nexus3d-diagnostics.db"
-        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2)
+        ).addMigrations(
+            DiagnosticsDatabase.MIGRATION_1_2,
+            DiagnosticsDatabase.MIGRATION_2_3
+        )
             .build()
     }
 
@@ -35,8 +40,10 @@ class DiagnosticBridgeProvider : ContentProvider() {
         val appContext = requireNotNull(context)
         val callerUid = Binder.getCallingUid()
         val callerPackages = appContext.packageManager.getPackagesForUid(callerUid).orEmpty()
-        if (!callerPackages.contains(ALLOWED_EDITOR_PACKAGE)) {
-            throw SecurityException("Only the Nexus3D Editor Test APK may submit diagnostic events")
+        if (!callerPackages.contains(ALLOWED_EDITOR_PACKAGE) ||
+            !hasTrustedEditorSignature(appContext.packageManager, ALLOWED_EDITOR_PACKAGE)
+        ) {
+            throw SecurityException("Only the signed Nexus3D Editor Test APK may submit diagnostic events")
         }
 
         val payload = extras?.getString("eventsJson")
@@ -136,13 +143,41 @@ class DiagnosticBridgeProvider : ContentProvider() {
 
     companion object {
         private const val ALLOWED_EDITOR_PACKAGE = "com.nexus3d.studio.test"
+        // SHA-256 signing-certificate digest from the verified Nexus3D Editor Test APK.
+        // Update only when the Editor Test APK signing key is intentionally rotated.
+        private const val ALLOWED_EDITOR_CERT_SHA256 = "99096295753f31b52fb01be570ab377ea61f4a64d40cd8d32e7e36ebc285472b"
         private const val MAX_BATCH_SIZE = 20
         private const val MAX_PAYLOAD_CHARS = 128 * 1024
         private const val MAX_DETAILS_CHARS = 24000
         private val ALLOWED_SOURCES = setOf("RDS_LOGCAT", "RIT_TRACE", "RUNTIME", "WEBGL_SHADER", "SHADOW_MAPS", "MATERIALS_TEXTURES", "DFI_CORE", "MESH_DFI", "ROOT_CAUSE", "SOURCE_AUDIT", "REPORTS")
 
+        private fun hasTrustedEditorSignature(packageManager: PackageManager, packageName: String): Boolean {
+            return runCatching {
+                val expectedDigest = ALLOWED_EDITOR_CERT_SHA256.chunked(2)
+                    .map { it.toInt(16).toByte() }.toByteArray()
+                if (android.os.Build.VERSION.SDK_INT >= 28) {
+                    packageManager.hasSigningCertificate(
+                        packageName,
+                        expectedDigest,
+                        PackageManager.CERT_INPUT_SHA256
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    val signatures = packageManager.getPackageInfo(
+                        packageName,
+                        PackageManager.GET_SIGNATURES
+                    ).signatures.orEmpty()
+                    signatures.any { signature ->
+                        val digest = MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())
+                        digest.contentEquals(expectedDigest)
+                    }
+                }
+            }.getOrDefault(false)
+        }
+
         private fun isUuid(value: String): Boolean =
-            runCatching { java.util.UUID.fromString(value) }.isSuccess
+            value.matches(Regex("(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")) &&
+                runCatching { java.util.UUID.fromString(value) }.isSuccess
         private val ALLOWED_SEVERITIES = setOf("VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL")
     }
 }

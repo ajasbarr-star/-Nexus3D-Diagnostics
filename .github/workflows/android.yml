@@ -9,6 +9,7 @@ on:
       - feature/nd-supabase-multidevice-phase1
       - feature/automatic-device-release-beta-management
       - repair/accurate-apk-connection-status
+      - repair/ipc-migration-consent
   pull_request:
     branches:
       - feature/automatic-device-release-beta-management
