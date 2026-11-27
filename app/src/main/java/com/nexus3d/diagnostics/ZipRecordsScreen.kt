@@ -334,8 +334,8 @@ private suspend fun importArchive(context: Context, database: DiagnosticsDatabas
             }
         }
         require(sawManifest && sawEvents) { "ZIP must contain a valid manifest.json and events.json" }
-        if (stagedEvents.isNotEmpty()) dao.insertAll(stagedEvents)
-        return "${stagedEvents.size} new event(s) added; imported provenance marked; original archive retained"
+        val imported = if (stagedEvents.isNotEmpty()) dao.insertAllIfAbsent(stagedEvents) else 0
+        return "${imported} new event(s) added; imported provenance marked; original archive retained"
     } catch (error: Exception) {
         // Keep the copied source archive for inspection; no live rows are inserted until validation completes.
         throw error
