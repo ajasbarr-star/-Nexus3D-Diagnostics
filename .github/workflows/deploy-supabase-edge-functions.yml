@@ -5,8 +5,11 @@ on:
   push:
     branches:
       - feature/nd-supabase-multidevice-phase1
+      - feature/automatic-device-release-beta-management
     paths:
       - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - 'supabase/config.toml'
       - '.github/workflows/deploy-supabase-edge-functions.yml'
 
 permissions:
@@ -21,22 +24,45 @@ jobs:
       - name: Checkout diagnostics source
         uses: actions/checkout@v4
         with:
-          ref: feature/nd-supabase-multidevice-phase1
+          ref: ${{ github.ref_name }}
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.75.0
 
       - name: Validate deployment configuration
         shell: bash
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+          NEXUS3D_AUTO_ENROLL_WORKSPACE_ID: ${{ secrets.NEXUS3D_AUTO_ENROLL_WORKSPACE_ID }}
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::Missing SUPABASE_ACCESS_TOKEN secret"; exit 1; }
           test -n "$SUPABASE_PROJECT_ID" || { echo "::error::Missing SUPABASE_PROJECT_ID secret"; exit 1; }
+          test -n "$NEXUS3D_AUTO_ENROLL_WORKSPACE_ID" || { echo "::error::Missing NEXUS3D_AUTO_ENROLL_WORKSPACE_ID environment secret"; exit 1; }
+          [[ "$NEXUS3D_AUTO_ENROLL_WORKSPACE_ID" =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "::error::Workspace ID is not a UUID"; exit 1; }
           test "$SUPABASE_PROJECT_ID" = "rupftghvjmalntjoesnv" || { echo "::error::Project ID does not match the approved Nexus3D-Diagnostics project"; exit 1; }
+
+      - name: Configure automatic device registration workspace
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          NEXUS3D_AUTO_ENROLL_WORKSPACE_ID: ${{ secrets.NEXUS3D_AUTO_ENROLL_WORKSPACE_ID }}
+        run: |
+          supabase secrets set "NEXUS3D_AUTO_ENROLL_WORKSPACE_ID=$NEXUS3D_AUTO_ENROLL_WORKSPACE_ID" --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
+
+      - name: Link approved Supabase project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+
+      - name: Apply additive Supabase schema migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          test -n "$SUPABASE_DB_PASSWORD" || { echo "::error::Add SUPABASE_DB_PASSWORD as a GitHub Actions secret to apply the additive device metadata migration."; exit 1; }
+          supabase db push --linked --yes
 
       - name: Deploy create-enrollment-code
         env:
@@ -52,3 +78,18 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase functions deploy ingest-events --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
+
+      - name: Deploy auto-register-device
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy auto-register-device --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
+
+      - name: Deploy report-installation
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy report-installation --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
+
+      - name: Deploy device-presence
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy device-presence --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes

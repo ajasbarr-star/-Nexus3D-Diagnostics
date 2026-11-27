@@ -40,7 +40,8 @@ import java.time.Instant
 @Composable
 fun CloudAccountScreen(
     repository: SupabaseAccountRepository,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    inline: Boolean = false
 ) {
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
@@ -65,15 +66,16 @@ fun CloudAccountScreen(
         }
     }
 
-    Surface(modifier = Modifier.fillMaxSize()) {
+    Surface(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .then(if (inline) Modifier else Modifier.fillMaxSize())
                 .verticalScroll(rememberScrollState())
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            if (!inline) Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = onBack) { Text("← Back") }
                 Text("CLOUD ACCOUNT", style = MaterialTheme.typography.labelLarge)
             }

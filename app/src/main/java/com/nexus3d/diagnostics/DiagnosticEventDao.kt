@@ -19,6 +19,9 @@ interface DiagnosticEventDao {
     @Query("SELECT COUNT(*) FROM diagnostic_events")
     suspend fun count(): Int
 
+    @Query("SELECT COUNT(*) FROM diagnostic_events WHERE eventId = :eventId")
+    suspend fun countByEventId(eventId: String): Int
+
     @Query("DELETE FROM diagnostic_events")
     suspend fun clearAll()
 }

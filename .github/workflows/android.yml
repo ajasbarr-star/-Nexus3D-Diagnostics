@@ -7,6 +7,7 @@ on:
       - main
       - feature/nexus3d-editor-diagnostics-bridge
       - feature/nd-supabase-multidevice-phase1
+      - feature/automatic-device-release-beta-management
   workflow_dispatch:
 
 concurrency:
@@ -74,31 +75,33 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          EXISTING_TAG="$(git tag --points-at HEAD | grep -E '^diagnostics-build-[0-9]+$' | sort -V | tail -n 1 || true)"
-
-          if [ -n "$EXISTING_TAG" ]; then
-            BUILD_NUMBER="${EXISTING_TAG#diagnostics-build-}"
+          if [ "$GITHUB_REF_NAME" = "feature/automatic-device-release-beta-management" ]; then
+            BUILD_NUMBER="$GITHUB_RUN_NUMBER"
           else
-            LAST_TAG="$(git tag -l 'diagnostics-build-*' | grep -E '^diagnostics-build-[0-9]+$' | sort -V | tail -n 1 || true)"
-
-            if [ -n "$LAST_TAG" ]; then
-              LAST_NUMBER="${LAST_TAG#diagnostics-build-}"
-              BUILD_NUMBER=$((LAST_NUMBER + 1))
+            EXISTING_TAG="$(git tag --points-at HEAD | grep -E '^diagnostics-build-[0-9]+$' | sort -V | tail -n 1 || true)"
+            if [ -n "$EXISTING_TAG" ]; then
+              BUILD_NUMBER="$(printf '%s' "$EXISTING_TAG" | sed 's/^diagnostics-build-//')"
             else
-              BUILD_NUMBER=1
+              LAST_TAG="$(git tag -l 'diagnostics-build-*' | grep -E '^diagnostics-build-[0-9]+$' | sort -V | tail -n 1 || true)"
+              if [ -n "$LAST_TAG" ]; then
+                LAST_NUMBER="$(printf '%s' "$LAST_TAG" | sed 's/^diagnostics-build-//')"
+                BUILD_NUMBER=$((LAST_NUMBER + 1))
+              else
+                BUILD_NUMBER=1
+              fi
             fi
           fi
-
           VERSION_NAME="$(printf '1.0.%02d' "$BUILD_NUMBER")"
-          STEM="Nexus3D _Diagnostics_Build${BUILD_NUMBER}_v${VERSION_NAME}"
-
+          STEM="$(printf 'Nexus3D _Diagnostics_Build%s_v%s' "$BUILD_NUMBER" "$VERSION_NAME")"
           echo "number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "stem=$STEM" >> "$GITHUB_OUTPUT"
           echo "tag=diagnostics-build-$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-
           echo "Preparing $STEM"
+      - name: Run Device Inventory presence formatter tests
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: gradle :app:testDebugUnitTest -PdiagnosticsBuildNumber="$BUILD_NUMBER"
 
       - name: Build signed Test APK
         shell: bash
@@ -176,7 +179,7 @@ jobs:
           retention-days: 30
 
       - name: Commit successful build tag
-        if: success()
+        if: success() && github.ref_name != 'feature/automatic-device-release-beta-management'
         shell: bash
         env:
           BUILD_TAG: ${{ steps.build_meta.outputs.tag }}

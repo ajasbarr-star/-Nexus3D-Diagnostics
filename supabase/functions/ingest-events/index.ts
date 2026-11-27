@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, isUuid, jsonResponse, sha256Hex } from "../_shared/http.ts";
 
-const allowedSources = new Set(["RDS_LOGCAT", "RIT_TRACE", "RUNTIME"]);
+const allowedSources = new Set(["RDS_LOGCAT", "RIT_TRACE", "RUNTIME", "WEBGL_SHADER", "SHADOW_MAPS", "MATERIALS_TEXTURES", "DFI_CORE", "MESH_DFI", "ROOT_CAUSE", "SOURCE_AUDIT", "REPORTS"]);
 const allowedSeverities = new Set(["VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"]);
 
 Deno.serve(async (req: Request) => {
