@@ -98,6 +98,57 @@ class SupabaseAccountRepository(context: Context) {
     }
 
 
+    suspend fun fetchOwnerAdminStatus(): OwnerAdminStatus = withContext(Dispatchers.IO) {
+        val result = request(
+            path = "/functions/v1/owner-admin",
+            method = "POST",
+            body = JSONObject().put("action", "status"),
+            bearer = freshAccessToken()
+        )
+        ownerAdminStatusFrom(result)
+    }
+
+    suspend fun registerOwnerAdmin(setupCode: String): OwnerAdminStatus = withContext(Dispatchers.IO) {
+        val normalizedCode = setupCode.trim()
+        require(normalizedCode.length in 20..256) { "Enter the valid one-time Admin Setup Code." }
+        val result = request(
+            path = "/functions/v1/owner-admin",
+            method = "POST",
+            body = JSONObject().put("action", "bootstrap").put("setupCode", normalizedCode),
+            bearer = freshAccessToken()
+        )
+        ownerAdminStatusFrom(result)
+    }
+
+    private fun ownerAdminStatusFrom(json: JSONObject): OwnerAdminStatus = OwnerAdminStatus(
+        registered = json.optBoolean("registered", false),
+        adminId = json.optString("adminId").takeUnless { it.isBlank() || it == "null" },
+        role = json.optString("role").takeUnless { it.isBlank() || it == "null" },
+        status = json.optString("status").takeUnless { it.isBlank() || it == "null" },
+        eligible = json.optBoolean("eligible", false),
+        emailVerified = json.optBoolean("emailVerified", false)
+    )
+
+    private fun freshAccessToken(): String {
+        var accessToken = preferences.getString(ACCESS, null)
+            ?: error("Please sign in first.")
+        val expiresAtMillis = preferences.getLong(EXPIRES, 0L)
+        if (System.currentTimeMillis() >= expiresAtMillis - 60_000L) {
+            val refreshToken = preferences.getString(REFRESH, null)
+                ?: error("Your session expired. Please sign in again.")
+            val refreshed = request(
+                path = "/auth/v1/token?grant_type=refresh_token",
+                method = "POST",
+                body = JSONObject().put("refresh_token", refreshToken)
+            )
+            saveSessionIfPresent(refreshed)
+            accessToken = preferences.getString(ACCESS, null)
+                ?: error("Session refresh failed. Please sign in again.")
+        }
+        return accessToken
+    }
+
+
     suspend fun fetchRegisteredDevices(): List<RegisteredDevice> = withContext(Dispatchers.IO) {
         var accessToken = preferences.getString(ACCESS, null)
             ?: error("Please sign in to view registered devices.")
@@ -269,6 +320,15 @@ class SupabaseAccountRepository(context: Context) {
 }
 
  
+data class OwnerAdminStatus(
+    val registered: Boolean,
+    val adminId: String?,
+    val role: String?,
+    val status: String?,
+    val eligible: Boolean,
+    val emailVerified: Boolean
+)
+
 data class RegisteredDevice(
     val recordId: String,
     val id: String,
