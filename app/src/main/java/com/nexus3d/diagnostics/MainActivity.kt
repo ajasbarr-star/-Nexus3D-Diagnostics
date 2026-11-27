@@ -23,6 +23,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -67,7 +69,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class DiagnosticsScreen {
-    HOME, EVENTS, RDS_LOGCAT, RIT_TRACE, EVENT_DETAILS, CLOUD_ACCOUNT, DEVICE_INVENTORY
+    HOME, EVENTS, RDS_LOGCAT, RIT_TRACE, EVENT_DETAILS, CLOUD_ACCOUNT, DEVICE_INVENTORY, ZIP_RECORDS
 }
 
 @Composable
@@ -142,6 +144,10 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                 CloudAccountScreen(cloudAccountRepository) {
                     screen = DiagnosticsScreen.HOME
                 }
+            }
+
+            DiagnosticsScreen.ZIP_RECORDS -> {
+                ZipRecordsScreen(database) { screen = DiagnosticsScreen.HOME }
             }
 
             DiagnosticsScreen.DEVICE_INVENTORY -> {
@@ -229,6 +235,13 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                 }
 
                 ToolCard(
+                    "ZIP Records",
+                    "Import, export, inspect and retain diagnostic ZIP archives"
+                ) {
+                    screen = DiagnosticsScreen.ZIP_RECORDS
+                }
+
+                ToolCard(
                     "Device Inventory",
                     "View registered Nexus3D Editor installations"
                 ) {
@@ -273,7 +286,7 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
             }
 
             DiagnosticsScreen.EVENTS -> {
-                ScreenHeader("All Events") {
+                ScreenHeader("REPORT") {
                     screen = DiagnosticsScreen.HOME
                 }
 
