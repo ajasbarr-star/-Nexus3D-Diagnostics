@@ -126,7 +126,6 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const ownerEmail = (Deno.env.get("NEXUS3D_OWNER_ADMIN_EMAIL") ?? "").trim().toLowerCase();
   const setupCodeHash = (Deno.env.get("NEXUS3D_ADMIN_SETUP_CODE_SHA256") ?? "").trim().toLowerCase();
   if (!ownerEmail || !/^[a-f0-9]{64}$/.test(setupCodeHash)) {
     return jsonResponse({ error: "admin_registration_not_configured" }, 503);
