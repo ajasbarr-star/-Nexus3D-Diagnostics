@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
             applicationContext,
             DiagnosticsDatabase::class.java,
             "nexus3d-diagnostics.db"
-        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2).build()
+        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2, DiagnosticsDatabase.MIGRATION_2_3).build()
 
         setContent {
             DiagnosticsHome(database, cloudAccountRepository)
