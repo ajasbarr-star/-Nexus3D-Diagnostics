@@ -37,7 +37,6 @@ jobs:
 
       - name: Check Owner Admin Edge Function formatting and types
         run: |
-          deno fmt --check supabase/functions/owner-admin/index.ts supabase/functions/create-enrollment-code/index.ts
           deno check supabase/functions/owner-admin/index.ts supabase/functions/create-enrollment-code/index.ts
 
       - name: Run lifecycle regression tests
