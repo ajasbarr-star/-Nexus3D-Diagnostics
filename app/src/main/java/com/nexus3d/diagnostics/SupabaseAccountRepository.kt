@@ -1,6 +1,7 @@
 package com.nexus3d.diagnostics
 
 import android.content.Context
+import android.net.Uri
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.Dispatchers
@@ -8,6 +9,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.json.JSONArray
 import java.net.HttpURLConnection
+import java.net.URLEncoder
 import java.net.URL
 
 data class EnrollmentCode(
@@ -20,6 +22,7 @@ class SupabaseAccountRepository(context: Context) {
     companion object {
         private const val SUPABASE_URL = "https://rupftghvjmalntjoesnv.supabase.co"
         private const val SUPABASE_KEY = "sb_publishable_t3-BF5smZ21bzc59TVrYIw_4MHGG3Dq"
+        private const val AUTH_REDIRECT_URI = "com.nexus3d.diagnostics://auth-callback"
         private const val PREFS = "nexus3d_cloud_auth"
         private const val ACCESS = "access_token"
         private const val REFRESH = "refresh_token"
@@ -44,16 +47,31 @@ class SupabaseAccountRepository(context: Context) {
 
     suspend fun signUp(email: String, password: String): String = withContext(Dispatchers.IO) {
         val result = request(
-            path = "/auth/v1/signup",
+            path = "/auth/v1/signup?redirect_to=" + URLEncoder.encode(AUTH_REDIRECT_URI, "UTF-8"),
             method = "POST",
             body = JSONObject().put("email", email.trim()).put("password", password)
         )
         saveSessionIfPresent(result)
-        if (result.optString("access_token").isBlank()) {
-            "Account created. Check your email to confirm it, then sign in here."
+        val identities = result.optJSONObject("user")?.optJSONArray("identities")
+        val repeatedSignup = identities != null && identities.length() == 0
+        if (repeatedSignup) {
+            "An account may already exist for this email. Sign in, or use Resend Confirmation if the email is not verified. No new account was created."
+        } else if (result.optString("access_token").isBlank()) {
+            "Registration request accepted. Check your email to confirm it, then sign in here."
         } else {
             "Account created and signed in."
         }
+    }
+
+    suspend fun resendSignupConfirmation(email: String): String = withContext(Dispatchers.IO) {
+        val normalizedEmail = email.trim()
+        require(normalizedEmail.contains("@")) { "Enter a valid email address first." }
+        request(
+            path = "/auth/v1/resend?redirect_to=" + URLEncoder.encode(AUTH_REDIRECT_URI, "UTF-8"),
+            method = "POST",
+            body = JSONObject().put("type", "signup").put("email", normalizedEmail)
+        )
+        "If this account is eligible for confirmation, a new confirmation email has been requested. Check your inbox and spam folder."
     }
 
     suspend fun signIn(email: String, password: String) = withContext(Dispatchers.IO) {
@@ -95,6 +113,68 @@ class SupabaseAccountRepository(context: Context) {
             error("The server returned an invalid enrollment code response.")
         }
         EnrollmentCode(code, expiresAt, result.optInt("expiresInSeconds", 600))
+    }
+
+
+    suspend fun fetchOwnerAdminStatus(): OwnerAdminStatus = withContext(Dispatchers.IO) {
+        val result = request(
+            path = "/functions/v1/owner-admin",
+            method = "POST",
+            body = JSONObject().put("action", "status"),
+            bearer = freshAccessToken()
+        )
+        ownerAdminStatusFrom(result)
+    }
+
+    suspend fun submitOwnerAdminConsent(): OwnerAdminStatus = withContext(Dispatchers.IO) {
+        val result = request(
+            path = "/functions/v1/owner-admin",
+            method = "POST",
+            body = JSONObject().put("action", "consent").put("accepted", true),
+            bearer = freshAccessToken()
+        )
+        ownerAdminStatusFrom(result)
+    }
+
+    suspend fun registerOwnerAdmin(setupCode: String): OwnerAdminStatus = withContext(Dispatchers.IO) {
+        val normalizedCode = setupCode.trim()
+        require(normalizedCode.length in 20..256) { "Enter the valid one-time Admin Setup Code." }
+        val result = request(
+            path = "/functions/v1/owner-admin",
+            method = "POST",
+            body = JSONObject().put("action", "bootstrap").put("setupCode", normalizedCode),
+            bearer = freshAccessToken()
+        )
+        ownerAdminStatusFrom(result)
+    }
+
+    private fun ownerAdminStatusFrom(json: JSONObject): OwnerAdminStatus = OwnerAdminStatus(
+        registered = json.optBoolean("registered", false),
+        adminId = json.optString("adminId").takeUnless { it.isBlank() || it == "null" },
+        role = json.optString("role").takeUnless { it.isBlank() || it == "null" },
+        status = json.optString("status").takeUnless { it.isBlank() || it == "null" },
+        eligible = json.optBoolean("eligible", false),
+        emailVerified = json.optBoolean("emailVerified", false),
+        consentAccepted = json.optBoolean("consentAccepted", false)
+    )
+
+    private fun freshAccessToken(): String {
+        var accessToken = preferences.getString(ACCESS, null)
+            ?: error("Please sign in first.")
+        val expiresAtMillis = preferences.getLong(EXPIRES, 0L)
+        if (System.currentTimeMillis() >= expiresAtMillis - 60_000L) {
+            val refreshToken = preferences.getString(REFRESH, null)
+                ?: error("Your session expired. Please sign in again.")
+            val refreshed = request(
+                path = "/auth/v1/token?grant_type=refresh_token",
+                method = "POST",
+                body = JSONObject().put("refresh_token", refreshToken)
+            )
+            saveSessionIfPresent(refreshed)
+            accessToken = preferences.getString(ACCESS, null)
+                ?: error("Session refresh failed. Please sign in again.")
+        }
+        return accessToken
     }
 
 
@@ -216,6 +296,42 @@ class SupabaseAccountRepository(context: Context) {
         preferences.edit().clear().apply()
     }
 
+
+    /**
+     * Handles the Supabase implicit-flow callback delivered by the Android deep link.
+     * The access and refresh tokens are stored in the existing encrypted session store.
+     */
+    fun handleAuthCallback(uri: Uri): String? {
+        if (uri.scheme != "com.nexus3d.diagnostics" || uri.host != "auth-callback") return null
+
+        val fragmentParams = Uri.parse("https://callback.invalid/?${uri.fragment.orEmpty()}")
+        fun parameter(name: String): String? =
+            uri.getQueryParameter(name) ?: fragmentParams.getQueryParameter(name)
+
+        val errorCode = parameter("error_code")
+        if (!errorCode.isNullOrBlank()) {
+            val description = parameter("error_description").orEmpty()
+                .replace("+", " ")
+                .take(240)
+            return "$errorCode: " + description.ifBlank { "Email confirmation failed. Request a new confirmation email." }
+        }
+
+        val accessToken = parameter("access_token")
+        val refreshToken = parameter("refresh_token")
+        if (accessToken.isNullOrBlank() || refreshToken.isNullOrBlank()) {
+            return "The confirmation callback did not contain a valid session. Sign in again or request a new confirmation email."
+        }
+
+        val expiresIn = parameter("expires_in")?.toLongOrNull()?.coerceAtLeast(60L) ?: 3600L
+        saveSessionIfPresent(
+            JSONObject()
+                .put("access_token", accessToken)
+                .put("refresh_token", refreshToken)
+                .put("expires_in", expiresIn)
+        )
+        return "Email confirmed. Your Diagnostics session is ready."
+    }
+
     private fun saveSessionIfPresent(json: JSONObject) {
         val access = json.optString("access_token")
         val refresh = json.optString("refresh_token")
@@ -250,16 +366,22 @@ class SupabaseAccountRepository(context: Context) {
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            val json = if (responseText.isBlank()) JSONObject() else JSONObject(responseText)
+            val json = runCatching {
+                if (responseText.isBlank()) JSONObject() else JSONObject(responseText)
+            }.getOrElse { JSONObject() }
             if (status !in 200..299) {
-                val message = json.optString("msg").ifBlank {
+                val serverMessage = json.optString("msg").ifBlank {
                     json.optString("message").ifBlank {
                         json.optString("error_description").ifBlank {
-                            json.optString("error").ifBlank { "Request failed (HTTP $status)." }
+                            json.optString("error").ifBlank { responseText.trim().take(220) }
                         }
                     }
                 }
-                error(message)
+                val safeMessage = serverMessage.ifBlank { "No error details were returned by the server." }
+                error("Supabase request failed (HTTP $status) at $path: $safeMessage")
+            }
+            if (responseText.isNotBlank() && json.length() == 0) {
+                error("Supabase returned an unreadable response (HTTP $status) at $path.")
             }
             return json
         } finally {
@@ -269,6 +391,16 @@ class SupabaseAccountRepository(context: Context) {
 }
 
  
+data class OwnerAdminStatus(
+    val registered: Boolean,
+    val adminId: String?,
+    val role: String?,
+    val status: String?,
+    val eligible: Boolean,
+    val emailVerified: Boolean,
+    val consentAccepted: Boolean
+)
+
 data class RegisteredDevice(
     val recordId: String,
     val id: String,

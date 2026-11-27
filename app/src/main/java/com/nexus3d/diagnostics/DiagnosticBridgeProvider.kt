@@ -102,11 +102,10 @@ class DiagnosticBridgeProvider : ContentProvider() {
         runBlocking {
             withContext(Dispatchers.IO) {
                 accepted.forEach { event ->
-                    if (database.eventDao().countByEventId(event.eventId) > 0) {
-                        duplicates += 1
-                    } else {
-                        database.eventDao().insert(event)
+                    if (database.eventDao().insertIfAbsent(event)) {
                         inserted += 1
+                    } else {
+                        duplicates += 1
                     }
                     acknowledgedEventIds.add(event.eventId)
                 }

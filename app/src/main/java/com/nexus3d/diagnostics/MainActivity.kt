@@ -71,10 +71,10 @@ class MainActivity : ComponentActivity() {
             applicationContext,
             DiagnosticsDatabase::class.java,
             "nexus3d-diagnostics.db"
-        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2).build()
+        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2, DiagnosticsDatabase.MIGRATION_2_3).build()
 
         setContent {
-            DiagnosticsHome(database, cloudAccountRepository)
+            DiagnosticsStartupGate(database, cloudAccountRepository)
         }
     }
 }
@@ -84,7 +84,7 @@ private enum class DiagnosticsScreen {
 }
 
 @Composable
-private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository) {
+internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository, onSignOut: () -> Unit) {
     val context = LocalContext.current
     val events by database.eventDao().observeAll().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
@@ -169,7 +169,7 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                 } else {
                     Column(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                         when(screen) {
-                            DiagnosticsScreen.CLOUD_ACCOUNT -> CloudAccountScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME})
+                            DiagnosticsScreen.CLOUD_ACCOUNT -> CloudAccountScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME},onSignOut=onSignOut)
                             DiagnosticsScreen.ZIP_RECORDS -> ZipRecordsScreen(database,onBack={screen=DiagnosticsScreen.HOME})
                             DiagnosticsScreen.DEVICE_INVENTORY -> DeviceInventoryScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME},onOpenCloudAccount={screen=DiagnosticsScreen.CLOUD_ACCOUNT})
                             DiagnosticsScreen.EVENTS -> {
@@ -249,7 +249,7 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                             TextButton(onClick={rightOpen=false}){Text("Close ✕")}
                         }
                         DrawerSection("Cloud Account","Pair Editor installations",rightExpanded=="Cloud Account",{rightExpanded=if(rightExpanded=="Cloud Account")"" else "Cloud Account"}) {
-                            CloudAccountScreen(cloudAccountRepository,onBack={},inline=true)
+                            CloudAccountScreen(cloudAccountRepository,onBack={},inline=true,onSignOut=onSignOut)
                         }
                         DrawerSection("ZIP Records","Import, export and inspect archives",rightExpanded=="ZIP Records",{rightExpanded=if(rightExpanded=="ZIP Records")"" else "ZIP Records"}) {
                             ZipRecordsScreen(database,onBack={},inline=true)
