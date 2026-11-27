@@ -115,7 +115,7 @@ class SupabaseAccountRepository(context: Context) {
                 ?: error("Session refresh failed. Please sign in again.")
         }
 
-        val connection = (URL(SUPABASE_URL + "/rest/v1/devices?select=id,installation_id,device_name,manufacturer,model,android_version,app_version,app_build_number,app_version_code,status,registration_method,created_at,last_seen_at,presence_state,last_active_at&status=eq.active&order=last_active_at.desc.nullslast,last_seen_at.desc")
+        val connection = (URL(SUPABASE_URL + "/rest/v1/devices?select=id,installation_id,device_name,manufacturer,model,android_version,cpu_info,gpu_info,ram_bytes,rom_bytes,app_version,app_build_number,app_version_code,status,registration_method,created_at,last_seen_at,presence_state,last_active_at&status=eq.active&order=last_active_at.desc.nullslast,last_seen_at.desc")
             .openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 15_000
@@ -139,6 +139,10 @@ class SupabaseAccountRepository(context: Context) {
                     manufacturer = row.optString("manufacturer").takeUnless { it == "null" }.orEmpty(),
                     model = row.optString("model").takeUnless { it == "null" }.orEmpty(),
                     androidVersion = row.optString("android_version").takeUnless { it == "null" }.orEmpty(),
+                    cpuInfo = row.optString("cpu_info").takeUnless { it == "null" }.orEmpty(),
+                    gpuInfo = row.optString("gpu_info").takeUnless { it == "null" }.orEmpty(),
+                    ramBytes = if (row.isNull("ram_bytes")) null else row.optLong("ram_bytes"),
+                    romBytes = if (row.isNull("rom_bytes")) null else row.optLong("rom_bytes"),
                     appVersion = row.optString("app_version", "unknown"),
                     buildNumber = if (row.isNull("app_build_number")) null else row.optLong("app_build_number"),
                     versionCode = if (row.isNull("app_version_code")) null else row.optLong("app_version_code"),
@@ -272,6 +276,10 @@ data class RegisteredDevice(
     val manufacturer: String,
     val model: String,
     val androidVersion: String,
+    val cpuInfo: String,
+    val gpuInfo: String,
+    val ramBytes: Long?,
+    val romBytes: Long?,
     val appVersion: String,
     val buildNumber: Long?,
     val versionCode: Long?,
