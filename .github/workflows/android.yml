@@ -161,7 +161,7 @@ jobs:
           echo "apk=$APK" >> "$GITHUB_OUTPUT"
           echo "APK checks passed: $PACKAGE_INFO $VERSION_INFO ($VERSION_CODE)"
 
-      - name: Package APK with requested filename
+      - name: Prepare standalone APK artifact (no nested ZIP)
         id: package
         shell: bash
         env:
@@ -171,29 +171,16 @@ jobs:
           set -euo pipefail
 
           mkdir -p dist
-
           APK_NAME="${STEM}.apk"
-          ZIP_NAME="${STEM}.zip"
-
           cp "$APK_SOURCE" "dist/$APK_NAME"
-          (cd dist && zip -q "$ZIP_NAME" "$APK_NAME")
-
           test -s "dist/$APK_NAME"
-          test -s "dist/$ZIP_NAME"
-
-          unzip -l "dist/$ZIP_NAME"
-          unzip -t "dist/$ZIP_NAME"
-
           echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Upload named ZIP and standalone APK
+      - name: Upload standalone APK only
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.package.outputs.zip_name }}
-          path: |
-            dist/${{ steps.package.outputs.zip_name }}
-            dist/${{ steps.package.outputs.apk_name }}
+          name: ${{ steps.package.outputs.apk_name }}
+          path: dist/${{ steps.package.outputs.apk_name }}
           if-no-files-found: error
           retention-days: 30
 
