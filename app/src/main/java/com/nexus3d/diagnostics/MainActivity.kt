@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,7 +50,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
@@ -87,6 +87,7 @@ private enum class DiagnosticsScreen {
 private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository) {
     val context = LocalContext.current
     val events by database.eventDao().observeAll().collectAsState(initial = emptyList())
+    val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("nexus3d_diagnostics_appearance", 0) }
     var themeName by remember { mutableStateOf(prefs.getString("background_theme", "Dark Gray") ?: "Dark Gray") }
     var screen by remember { mutableStateOf(DiagnosticsScreen.HOME) }
@@ -130,8 +131,8 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                 onDismissRequest={showClearConfirmation=false},
                 title={Text("Clear all diagnostic events?")},
                 text={Text("This permanently deletes the locally stored event history on this device.")},
-                confirmButton={TextButton(onClick={showClearConfirmation=false}) { Text("Cancel") }},
-                dismissButton={TextButton(onClick={showClearConfirmation=false}) { Text("Close") }}
+                confirmButton={TextButton(onClick={showClearConfirmation=false; scope.launch { database.eventDao().clearAll() }}) { Text("Clear all") }},
+                dismissButton={TextButton(onClick={showClearConfirmation=false}) { Text("Cancel") }}
             )
             Box(Modifier.fillMaxSize()) {
                 if (screen == DiagnosticsScreen.HOME) {
