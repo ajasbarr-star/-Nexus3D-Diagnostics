@@ -245,7 +245,8 @@ private suspend fun importArchive(context: Context, database: DiagnosticsDatabas
     var totalUncompressedBytes = 0L
     val seenEntries = mutableSetOf<String>()
     val stagedEvents = mutableListOf<DiagnosticEvent>()
-    val seenEventIds = mutableSetOf<String>()
+    // Event identity is scoped to the originating device, matching the SQLite unique index.
+    val seenDeviceEventKeys = mutableSetOf<String>()
     val dao = database.eventDao()
 
     try {
@@ -293,8 +294,11 @@ private suspend fun importArchive(context: Context, database: DiagnosticsDatabas
                         for (i in 0 until array.length()) {
                             val item = array.getJSONObject(i)
                             val eventId = item.optString("eventId").trim()
+                            val deviceId = item.optString("deviceId", "imported-unknown").trim()
                             require(eventId.isNotBlank() && eventId.length <= 128) { "Invalid imported event ID" }
-                            if (!seenEventIds.add(eventId) || dao.countByEventId(eventId) > 0) continue
+                            require(deviceId.isNotBlank() && deviceId.length <= 128) { "Invalid imported device ID" }
+                            val deviceEventKey = "$deviceId\u0000$eventId"
+                            if (!seenDeviceEventKeys.add(deviceEventKey)) continue
 
                             val sourceName = item.optString("source", "IMPORTED").trim().ifBlank { "IMPORTED" }
                             val severity = item.optString("severity", "INFO").uppercase(Locale.ROOT)
@@ -303,7 +307,6 @@ private suspend fun importArchive(context: Context, database: DiagnosticsDatabas
                             }
                             val title = item.optString("title", "Imported diagnostic event")
                             val details = item.optString("details", "")
-                            val deviceId = item.optString("deviceId", "imported-unknown")
                             val sessionId = item.optString("sessionId").takeIf { it.isNotBlank() && it != "null" }
                             val provenance = "[IMPORTED ARCHIVE: ${target.name}; importedAtEpochMs=$importedAt]\n"
                             require(sourceName.length <= 80 && title.length <= 240 && provenance.length + details.length <= 24000) {
