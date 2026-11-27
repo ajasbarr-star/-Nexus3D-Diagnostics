@@ -38,7 +38,7 @@ fun DeviceInventoryScreen(
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
-    var diagnosticsConnected by remember { mutableStateOf(false) }
+    var cloudInventoryConnected by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     fun refresh() {
@@ -49,9 +49,9 @@ fun DeviceInventoryScreen(
             try {
                 devices = repository.fetchRegisteredDevices()
                 loaded = true
-                diagnosticsConnected = true
+                cloudInventoryConnected = true
             } catch (exception: Exception) {
-                diagnosticsConnected = false
+                cloudInventoryConnected = false
                 error = exception.message ?: "Unable to load device inventory."
             } finally {
                 loading = false
@@ -140,7 +140,7 @@ fun DeviceInventoryScreen(
                         Text("Old Version: ${formatVersionEvent(previousUpdate)}")
                         Text("Registration: ${if (registered) "ACTIVE" else device.status.uppercase()}")
                         Text("Registration Method: ${device.registrationMethod}")
-                        Text("Connection: Editor APK ${if (online) "CONNECTED" else "DISCONNECTED"} • Cloud Inventory ${if (diagnosticsConnected) "CONNECTED" else "DISCONNECTED"} • Diagnostics APK PRESENCE UNKNOWN")
+                        Text("Connection: Editor APK ${if (online) "CONNECTED" else "DISCONNECTED"} • Cloud Inventory ${if (cloudInventoryConnected) "CONNECTED" else "DISCONNECTED"} • Diagnostics APK PRESENCE UNKNOWN")
                     }
                 }
             }
