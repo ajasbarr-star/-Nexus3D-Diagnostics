@@ -99,6 +99,7 @@ Deno.serve(async (req: Request) => {
         email: user.email,
         consent_version: consentVersion,
         accepted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       }, { onConflict: "auth_user_id" });
 
     if (consentError) {
