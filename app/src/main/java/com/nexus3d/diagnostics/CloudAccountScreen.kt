@@ -41,7 +41,8 @@ import java.time.Instant
 fun CloudAccountScreen(
     repository: SupabaseAccountRepository,
     onBack: () -> Unit,
-    inline: Boolean = false
+    inline: Boolean = false,
+    onSignOut: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
@@ -286,6 +287,7 @@ fun CloudAccountScreen(
                         enrollment = null
                         adminStatus = null
                         message = "Signed out."
+                        onSignOut()
                     }
                 ) { Text("Sign Out") }
             }
