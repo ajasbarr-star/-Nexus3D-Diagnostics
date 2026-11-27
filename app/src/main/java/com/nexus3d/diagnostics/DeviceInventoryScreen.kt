@@ -140,7 +140,7 @@ fun DeviceInventoryScreen(
                         Text("Old Version: ${formatVersionEvent(previousUpdate)}")
                         Text("Registration: ${if (registered) "ACTIVE" else device.status.uppercase()}")
                         Text("Registration Method: ${device.registrationMethod}")
-                        Text("Connection: Nexus3D APK ${if (online) "CONNECTED" else "DISCONNECTED"} • Nexus3D Diagnostic APK ${if (diagnosticsConnected) "CONNECTED" else "DISCONNECTED"}")
+                        Text("Connection: Editor APK ${if (online) "CONNECTED" else "DISCONNECTED"} • Cloud Inventory ${if (diagnosticsConnected) "CONNECTED" else "DISCONNECTED"} • Diagnostics APK PRESENCE UNKNOWN")
                     }
                 }
             }
