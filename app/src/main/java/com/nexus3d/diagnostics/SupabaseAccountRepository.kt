@@ -108,6 +108,16 @@ class SupabaseAccountRepository(context: Context) {
         ownerAdminStatusFrom(result)
     }
 
+    suspend fun submitOwnerAdminConsent(): OwnerAdminStatus = withContext(Dispatchers.IO) {
+        val result = request(
+            path = "/functions/v1/owner-admin",
+            method = "POST",
+            body = JSONObject().put("action", "consent").put("accepted", true),
+            bearer = freshAccessToken()
+        )
+        ownerAdminStatusFrom(result)
+    }
+
     suspend fun registerOwnerAdmin(setupCode: String): OwnerAdminStatus = withContext(Dispatchers.IO) {
         val normalizedCode = setupCode.trim()
         require(normalizedCode.length in 20..256) { "Enter the valid one-time Admin Setup Code." }
@@ -126,7 +136,8 @@ class SupabaseAccountRepository(context: Context) {
         role = json.optString("role").takeUnless { it.isBlank() || it == "null" },
         status = json.optString("status").takeUnless { it.isBlank() || it == "null" },
         eligible = json.optBoolean("eligible", false),
-        emailVerified = json.optBoolean("emailVerified", false)
+        emailVerified = json.optBoolean("emailVerified", false),
+        consentAccepted = json.optBoolean("consentAccepted", false)
     )
 
     private fun freshAccessToken(): String {
@@ -326,7 +337,8 @@ data class OwnerAdminStatus(
     val role: String?,
     val status: String?,
     val eligible: Boolean,
-    val emailVerified: Boolean
+    val emailVerified: Boolean,
+    val consentAccepted: Boolean
 )
 
 data class RegisteredDevice(
