@@ -23,7 +23,10 @@ class DiagnosticBridgeProvider : ContentProvider() {
             requireNotNull(context).applicationContext,
             DiagnosticsDatabase::class.java,
             "nexus3d-diagnostics.db"
-        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2)
+        ).addMigrations(
+            DiagnosticsDatabase.MIGRATION_1_2,
+            DiagnosticsDatabase.MIGRATION_2_3
+        )
             .build()
     }
 
