@@ -46,6 +46,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -193,53 +194,151 @@ private suspend fun exportArchive(context: Context, database: DiagnosticsDatabas
     return "${snapshot.size} diagnostic events"
 }
 
+private const val MAX_IMPORT_ARCHIVE_BYTES = 50L * 1024L * 1024L
+private const val MAX_IMPORT_TOTAL_UNCOMPRESSED_BYTES = 25L * 1024L * 1024L
+private const val MAX_IMPORT_ENTRY_BYTES = 16L * 1024L * 1024L
+private const val MAX_IMPORT_MANIFEST_BYTES = 1L * 1024L * 1024L
+
+private fun readEntryBounded(zip: ZipInputStream, maxBytes: Long): ByteArray {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(8192)
+    var total = 0L
+    while (true) {
+        val read = zip.read(buffer)
+        if (read < 0) break
+        total += read
+        require(total <= maxBytes) { "ZIP entry exceeds the import size limit" }
+        output.write(buffer, 0, read)
+    }
+    return output.toByteArray()
+}
+
+private fun copyUriBounded(context: Context, source: Uri, target: File, maxBytes: Long) {
+    val input = context.contentResolver.openInputStream(source) ?: error("Unable to read selected ZIP")
+    try {
+        input.use { sourceStream ->
+            target.outputStream().buffered().use { output ->
+                val buffer = ByteArray(8192)
+                var total = 0L
+                while (true) {
+                    val read = sourceStream.read(buffer)
+                    if (read < 0) break
+                    total += read
+                    require(total <= maxBytes) { "ZIP archive exceeds the compressed file size limit" }
+                    output.write(buffer, 0, read)
+                }
+            }
+        }
+    } catch (error: Exception) {
+        target.delete()
+        throw error
+    }
+}
+
 private suspend fun importArchive(context: Context, database: DiagnosticsDatabase, source: Uri): String {
     val directory = File(context.filesDir, "zip_records").apply { mkdirs() }
     val target = File(directory, "Imported_${System.currentTimeMillis()}.zip")
-    context.contentResolver.openInputStream(source)?.use { input -> target.outputStream().use(input::copyTo) }
-        ?: error("Unable to read selected ZIP")
-    var imported = 0
+    copyUriBounded(context, source, target, MAX_IMPORT_ARCHIVE_BYTES)
+
     var sawManifest = false
-    ZipInputStream(target.inputStream().buffered()).use { zip ->
-        var entry = zip.nextEntry
-        var count = 0
-        while (entry != null) {
-            count++
-            require(count <= 500) { "Archive contains too many entries" }
-            require(!entry.isDirectory && !entry.name.startsWith("/") && !entry.name.contains("..")) { "Unsafe archive entry" }
-            if (entry.name == "manifest.json") {
-                val manifest = JSONObject(zip.readBytes().toString(Charsets.UTF_8))
-                require(manifest.optString("format") == "nexus3d-diagnostics-zip-v1") { "Unsupported ZIP format" }
-                sawManifest = true
-            } else if (entry.name == "events.json") {
-                val array = JSONArray(zip.readBytes().toString(Charsets.UTF_8))
-                require(array.length() <= 10000) { "Event count exceeds import limit" }
-                val dao = database.eventDao()
-                for (i in 0 until array.length()) {
-                    val item = array.getJSONObject(i)
-                    val eventId = item.optString("eventId")
-                    if (eventId.isBlank() || dao.countByEventId(eventId) > 0) continue
-                    dao.insert(DiagnosticEvent(
-                        source = item.optString("source", "IMPORTED"),
-                        severity = item.optString("severity", "INFO"),
-                        title = item.optString("title", "Imported diagnostic event"),
-                        details = item.optString("details", ""),
-                        sessionId = item.optString("sessionId").takeIf { it.isNotBlank() && it != "null" },
-                        createdAtEpochMs = item.optLong("timestampEpochMs", System.currentTimeMillis()),
-                        eventId = eventId,
-                        deviceId = item.optString("deviceId", "imported-unknown"),
-                        sequence = item.optLong("sequence", 0),
-                        schemaVersion = item.optInt("schemaVersion", 1)
-                    ))
-                    imported++
+    var sawEvents = false
+    var totalUncompressedBytes = 0L
+    val seenEntries = mutableSetOf<String>()
+    val stagedEvents = mutableListOf<DiagnosticEvent>()
+    val seenEventIds = mutableSetOf<String>()
+    val dao = database.eventDao()
+
+    try {
+        ZipInputStream(target.inputStream().buffered()).use { zip ->
+            var entry = zip.nextEntry
+            var count = 0
+            while (entry != null) {
+                count++
+                require(count <= 500) { "Archive contains too many entries" }
+                val name = entry.name
+                require(
+                    !entry.isDirectory &&
+                    !name.startsWith("/") &&
+                    !name.startsWith("\\\\") &&
+                    !name.contains('\\\\') &&
+                    !Regex("^[A-Za-z]:").containsMatchIn(name) &&
+                    name.split('/').none { it == ".." || it.isBlank() }
+                ) { "Unsafe archive entry" }
+                require(seenEntries.add(name)) { "Archive contains duplicate entry names" }
+
+                val entryLimit = when (name) {
+                    "manifest.json" -> MAX_IMPORT_MANIFEST_BYTES
+                    "events.json" -> MAX_IMPORT_ENTRY_BYTES
+                    "Full_Report.txt" -> 8L * 1024L * 1024L
+                    else -> error("Unexpected ZIP entry: $name")
                 }
+                val bytes = readEntryBounded(zip, entryLimit)
+                totalUncompressedBytes += bytes.size
+                require(totalUncompressedBytes <= MAX_IMPORT_TOTAL_UNCOMPRESSED_BYTES) {
+                    "Archive exceeds the total uncompressed size limit"
+                }
+
+                when (name) {
+                    "manifest.json" -> {
+                        val manifest = JSONObject(bytes.toString(Charsets.UTF_8))
+                        require(manifest.optString("format") == "nexus3d-diagnostics-zip-v1") {
+                            "Unsupported ZIP format"
+                        }
+                        sawManifest = true
+                    }
+                    "events.json" -> {
+                        val array = JSONArray(bytes.toString(Charsets.UTF_8))
+                        require(array.length() <= 10000) { "Event count exceeds import limit" }
+                        val importedAt = System.currentTimeMillis()
+                        for (i in 0 until array.length()) {
+                            val item = array.getJSONObject(i)
+                            val eventId = item.optString("eventId").trim()
+                            require(eventId.isNotBlank() && eventId.length <= 128) { "Invalid imported event ID" }
+                            if (!seenEventIds.add(eventId) || dao.countByEventId(eventId) > 0) continue
+
+                            val sourceName = item.optString("source", "IMPORTED").trim().ifBlank { "IMPORTED" }
+                            val severity = item.optString("severity", "INFO").uppercase(Locale.ROOT)
+                            require(severity in setOf("VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL")) {
+                                "Invalid imported event severity"
+                            }
+                            val title = item.optString("title", "Imported diagnostic event")
+                            val details = item.optString("details", "")
+                            val deviceId = item.optString("deviceId", "imported-unknown")
+                            val sessionId = item.optString("sessionId").takeIf { it.isNotBlank() && it != "null" }
+                            require(sourceName.length <= 80 && title.length <= 240 && details.length <= 24000) {
+                                "Imported event field exceeds the allowed length"
+                            }
+                            require(deviceId.isNotBlank() && deviceId.length <= 128) { "Invalid imported device ID" }
+                            require(sessionId == null || sessionId.length <= 128) { "Invalid imported session ID" }
+
+                            stagedEvents += DiagnosticEvent(
+                                source = sourceName,
+                                severity = severity,
+                                title = title,
+                                details = "[IMPORTED ARCHIVE: ${target.name}; importedAtEpochMs=$importedAt]\\n$details",
+                                sessionId = sessionId,
+                                createdAtEpochMs = item.optLong("timestampEpochMs", importedAt).takeIf { it > 0 } ?: importedAt,
+                                eventId = eventId,
+                                deviceId = deviceId,
+                                sequence = item.optLong("sequence", 0).coerceAtLeast(0),
+                                schemaVersion = item.optInt("schemaVersion", 1).coerceAtLeast(1)
+                            )
+                        }
+                        sawEvents = true
+                    }
+                    "Full_Report.txt" -> Unit
+                }
+                zip.closeEntry()
+                entry = zip.nextEntry
             }
-            zip.closeEntry()
-            entry = zip.nextEntry
         }
+        require(sawManifest && sawEvents) { "ZIP must contain a valid manifest.json and events.json" }
+        if (stagedEvents.isNotEmpty()) dao.insertAll(stagedEvents)
+        return "${stagedEvents.size} new event(s) added; imported provenance marked; original archive retained"
+    } catch (error: Exception) {
+        // Keep the copied source archive for inspection; no live rows are inserted until validation completes.
+        throw error
     }
-    require(sawManifest) { "Missing or invalid Nexus3D ZIP manifest" }
-    return "$imported new event(s) added; original archive retained"
 }
 
 private fun inspectArchive(file: File): String = runCatching {
