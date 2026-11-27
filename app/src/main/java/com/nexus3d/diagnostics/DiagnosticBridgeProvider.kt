@@ -17,7 +17,7 @@ import java.security.MessageDigest
 
 /**
  * Private-by-identity IPC endpoint for the Nexus3D Editor Test APK.
- * Every call validates the Binder caller UID against the Editor package.
+ * Every call validates the Binder caller UID, exact Editor package, and pinned signing certificate.
  */
 class DiagnosticBridgeProvider : ContentProvider() {
     private val database by lazy {
@@ -176,7 +176,8 @@ class DiagnosticBridgeProvider : ContentProvider() {
         }
 
         private fun isUuid(value: String): Boolean =
-            runCatching { java.util.UUID.fromString(value) }.isSuccess
+            value.matches(Regex("(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")) &&
+                runCatching { java.util.UUID.fromString(value) }.isSuccess
         private val ALLOWED_SEVERITIES = setOf("VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL")
     }
 }
