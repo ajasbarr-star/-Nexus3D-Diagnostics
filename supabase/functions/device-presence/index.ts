@@ -52,8 +52,34 @@ Deno.serve(async (req: Request) => {
   const update: Record<string, unknown> = {
     presence_state: state,
     presence_updated_at: now,
+    // Keep the installation's inactivity/archive clock current on authenticated contact.
+    last_seen_at: now,
   };
   if (state === "online") update.last_active_at = now;
+
+  // Optional metadata is validated independently. Missing/invalid values never erase
+  // the last known-good Device Info values.
+  const info = body.deviceInfo && typeof body.deviceInfo === "object"
+    ? body.deviceInfo as Record<string, unknown> : {};
+  const manufacturer = clean(info.manufacturer, 80);
+  const model = clean(info.model, 100);
+  const androidVersion = clean(info.androidVersion, 40);
+  const appVersion = clean(body.appVersion, 40);
+  const buildNumber = Number.isSafeInteger(body.buildNumber) && Number(body.buildNumber) >= 0
+    ? Number(body.buildNumber) : null;
+  const versionCode = Number.isSafeInteger(body.versionCode) && Number(body.versionCode) >= 0
+    ? Number(body.versionCode) : null;
+
+  if (manufacturer) update.manufacturer = manufacturer;
+  if (model) update.model = model;
+  if (androidVersion) update.android_version = androidVersion;
+  if (appVersion) update.app_version = appVersion;
+  if (buildNumber !== null) update.app_build_number = buildNumber;
+  if (versionCode !== null) update.app_version_code = versionCode;
+  if (manufacturer || model) {
+    const deviceName = [manufacturer, model].filter(Boolean).join(" ").slice(0, 100);
+    if (deviceName) update.device_name = deviceName;
+  }
 
   const { error: updateError } = await admin.from("devices").update(update).eq("id", device.id);
   if (updateError) return jsonResponse({ error: "presence_update_failed" }, 500);
