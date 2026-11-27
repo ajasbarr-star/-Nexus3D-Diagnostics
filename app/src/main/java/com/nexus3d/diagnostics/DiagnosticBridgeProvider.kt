@@ -139,8 +139,8 @@ class DiagnosticBridgeProvider : ContentProvider() {
         private const val ALLOWED_EDITOR_PACKAGE = "com.nexus3d.studio.test"
         private const val MAX_BATCH_SIZE = 20
         private const val MAX_PAYLOAD_CHARS = 128 * 1024
-        private const val MAX_DETAILS_CHARS = 2400
-        private val ALLOWED_SOURCES = setOf("RDS_LOGCAT", "RIT_TRACE", "RUNTIME")
+        private const val MAX_DETAILS_CHARS = 24000
+        private val ALLOWED_SOURCES = setOf("RDS_LOGCAT", "RIT_TRACE", "RUNTIME", "WEBGL_SHADER", "SHADOW_MAPS", "MATERIALS_TEXTURES", "DFI_CORE", "MESH_DFI", "ROOT_CAUSE", "SOURCE_AUDIT", "REPORTS")
 
         private fun isUuid(value: String): Boolean =
             runCatching { java.util.UUID.fromString(value) }.isSuccess
