@@ -36,6 +36,7 @@ fun DeviceInventoryScreen(
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
+    var diagnosticsConnected by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     fun refresh() {
@@ -46,7 +47,9 @@ fun DeviceInventoryScreen(
             try {
                 devices = repository.fetchRegisteredDevices()
                 loaded = true
+                diagnosticsConnected = true
             } catch (exception: Exception) {
+                diagnosticsConnected = false
                 error = exception.message ?: "Unable to load device inventory."
             } finally {
                 loading = false
@@ -107,21 +110,46 @@ fun DeviceInventoryScreen(
                         Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        Text(device.name, style = MaterialTheme.typography.titleMedium)
-                        Text("Device ID: ${device.id}", style = MaterialTheme.typography.bodySmall)
-                        Text("Manufacturer / Model: ${listOf(device.manufacturer, device.model).filter { value -> value.isNotBlank() }.joinToString(" ").ifBlank { "Not reported" }}")
-                        Text("Android: ${device.androidVersion.ifBlank { "Not reported" }}")
-                        Text("Nexus3D: ${device.appVersion} • Build ${device.buildNumber?.toString() ?: "—"}")
-                        Text("Version Code: ${device.versionCode?.toString() ?: "—"}")
                         val online = isDevicePresenceOnline(device.presenceState, device.lastActiveAt)
+                        val registered = device.status.equals("active", ignoreCase = true)
+                        val latestUpdate = device.versionHistory.firstOrNull()
+                        val previousUpdate = device.versionHistory.drop(1).firstOrNull()
+                        Text(device.name, style = MaterialTheme.typography.titleMedium)
+                        Text("DEVICE INFO", style = MaterialTheme.typography.labelLarge)
+                        Text("APK Name: Nexus3D APK")
+                        Text("Nexus3D APK Active Time: ${formatActiveTime(device.lastActiveAt)}")
+                        Text("Installation Device Date: ${formatInstallationDate(device.installationDate)}")
+                        Text("Version: ${device.appVersion}")
                         Text(
-                            if (online) "Presence: ONLINE" else "Presence: OFFLINE",
+                            "New Update Version: " + (latestUpdate?.let { formatVersionEvent(it) }
+                                ?: "${device.appVersion} - update date not reported")
+                        )
+                        Text("Last Update Version: ${formatVersionEvent(previousUpdate)}")
+                        Text("Build No.: ${device.buildNumber?.toString() ?: "—"}")
+                        Text("Version Code: ${device.versionCode?.toString() ?: "—"}")
+                        Text(
+                            "ID No.: ${formatInstallationId(device.installationDate, device.id)}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text("Registration: ${if (registered) "ACTIVE" else device.status.uppercase()}")
+                        Text(
+                            "Connection: " + if (online && diagnosticsConnected) {
+                                "Nexus3D APK & Nexus3D Diagnostics APK both CONNECTED"
+                            } else {
+                                "Nexus3D APK ${if (online) "CONNECTED" else "DISCONNECTED"} • " +
+                                    "Nexus3D Diagnostics APK ${if (diagnosticsConnected) "CONNECTED" else "DISCONNECTED"}"
+                            },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            "User Status: ${if (online) "ONLINE" else "OFFLINE"}",
                             color = if (online) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.titleSmall
                         )
-                        Text("Registration: ${device.registrationMethod}")
-                        Text("Status: ${device.status}")
                         Text("Last Seen: ${formatLastActive(device.lastActiveAt)}")
+                        Text("Manufacturer / Model: ${listOf(device.manufacturer, device.model).filter { value -> value.isNotBlank() }.joinToString(" ").ifBlank { "Not reported" }}")
+                        Text("Android: ${device.androidVersion.ifBlank { "Not reported" }}")
+                        Text("Registration Method: ${device.registrationMethod}")
                     }
                 }
             }
