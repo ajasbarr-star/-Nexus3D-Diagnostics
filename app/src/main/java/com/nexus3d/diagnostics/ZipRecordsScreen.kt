@@ -315,7 +315,7 @@ private suspend fun importArchive(context: Context, database: DiagnosticsDatabas
                                 source = sourceName,
                                 severity = severity,
                                 title = title,
-                                details = "[IMPORTED ARCHIVE: ${target.name}; importedAtEpochMs=$importedAt]\\n$details",
+                                details = "[IMPORTED ARCHIVE: ${target.name}; importedAtEpochMs=$importedAt]\n$details",
                                 sessionId = sessionId,
                                 createdAtEpochMs = item.optLong("timestampEpochMs", importedAt).takeIf { it > 0 } ?: importedAt,
                                 eventId = eventId,
