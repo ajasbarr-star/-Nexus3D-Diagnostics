@@ -52,12 +52,30 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "invalid_json" }, 400);
   }
 
-  const action = body.action === "bootstrap" ? "bootstrap" : "status";
+  const ownerEmail = (Deno.env.get("NEXUS3D_OWNER_ADMIN_EMAIL") ?? "").trim().toLowerCase();
+  const confirmed = Boolean(user.email_confirmed_at);
+  const eligible = Boolean(ownerEmail) && confirmed &&
+    user.email.trim().toLowerCase() === ownerEmail;
+  const consentVersion = "2026-11-27-v1";
+
+  const { data: consent, error: consentLookupError } = await admin
+    .from("nexus3d_admin_consents")
+    .select("consent_version,accepted_at")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (consentLookupError) {
+    console.error("owner_admin_consent_lookup_failed", consentLookupError);
+    return jsonResponse({ error: "admin_consent_status_unavailable" }, 500);
+  }
+  const consentAccepted = Boolean(consent?.accepted_at) &&
+    consent?.consent_version === consentVersion;
+
+  const action = body.action === "bootstrap" || body.action === "consent"
+    ? body.action
+    : "status";
+
   if (action === "status") {
-    const ownerEmail = (Deno.env.get("NEXUS3D_OWNER_ADMIN_EMAIL") ?? "").trim().toLowerCase();
-    const confirmed = Boolean(user.email_confirmed_at);
-    const eligible = Boolean(ownerEmail) && confirmed &&
-      user.email.trim().toLowerCase() === ownerEmail;
     return jsonResponse({
       registered: Boolean(account),
       adminId: account?.id ?? null,
@@ -65,6 +83,37 @@ Deno.serve(async (req: Request) => {
       status: account?.status ?? null,
       eligible,
       emailVerified: confirmed,
+      consentAccepted,
+    });
+  }
+
+  if (action === "consent") {
+    if (!confirmed) return jsonResponse({ error: "email_not_verified" }, 403);
+    if (!eligible) return jsonResponse({ error: "owner_email_not_authorized" }, 403);
+    if (body.accepted !== true) return jsonResponse({ error: "consent_not_accepted" }, 400);
+
+    const { error: consentError } = await admin
+      .from("nexus3d_admin_consents")
+      .upsert({
+        auth_user_id: user.id,
+        email: user.email,
+        consent_version: consentVersion,
+        accepted_at: new Date().toISOString(),
+      }, { onConflict: "auth_user_id" });
+
+    if (consentError) {
+      console.error("owner_admin_consent_write_failed", consentError);
+      return jsonResponse({ error: "admin_consent_save_failed" }, 500);
+    }
+
+    return jsonResponse({
+      registered: Boolean(account),
+      adminId: account?.id ?? null,
+      role: account?.role ?? null,
+      status: account?.status ?? null,
+      eligible,
+      emailVerified: confirmed,
+      consentAccepted: true,
     });
   }
 
@@ -84,6 +133,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!user.email_confirmed_at) return jsonResponse({ error: "email_not_verified" }, 403);
+  if (!consentAccepted) return jsonResponse({ error: "admin_consent_required" }, 403);
   if (user.email.trim().toLowerCase() !== ownerEmail) {
     return jsonResponse({ error: "owner_email_not_authorized" }, 403);
   }
