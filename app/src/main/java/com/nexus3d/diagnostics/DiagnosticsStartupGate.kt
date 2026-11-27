@@ -225,7 +225,13 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                     Button(enabled = status?.adminId?.isNotBlank() == true, onClick = { stage = StartupStage.DASHBOARD }) { Text("Continue to Main Dashboard") }
                 }
                 StartupStage.DASHBOARD -> Box(Modifier.fillMaxSize()) {
-                    DiagnosticsHome(database, repository)
+                    DiagnosticsHome(database, repository, onSignOut = {
+                        repository.signOut()
+                        status = null
+                        stage = StartupStage.AUTH
+                        message = "Signed out securely."
+                        error = ""
+                    })
                     TextButton(
                         modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                         onClick = {
