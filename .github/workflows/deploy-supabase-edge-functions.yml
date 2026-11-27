@@ -8,6 +8,7 @@ on:
       - feature/automatic-device-release-beta-management
     paths:
       - 'supabase/functions/**'
+      - 'supabase/migrations/**'
       - 'supabase/config.toml'
       - '.github/workflows/deploy-supabase-edge-functions.yml'
 
@@ -49,6 +50,11 @@ jobs:
           NEXUS3D_AUTO_ENROLL_WORKSPACE_ID: ${{ secrets.NEXUS3D_AUTO_ENROLL_WORKSPACE_ID }}
         run: |
           supabase secrets set "NEXUS3D_AUTO_ENROLL_WORKSPACE_ID=$NEXUS3D_AUTO_ENROLL_WORKSPACE_ID" --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
+
+      - name: Apply additive Supabase schema migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase db push --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
 
       - name: Deploy create-enrollment-code
         env:
