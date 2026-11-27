@@ -84,7 +84,7 @@ private enum class DiagnosticsScreen {
 }
 
 @Composable
-internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository) {
+internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository, onSignOut: () -> Unit) {
     val context = LocalContext.current
     val events by database.eventDao().observeAll().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
@@ -169,7 +169,7 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                 } else {
                     Column(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                         when(screen) {
-                            DiagnosticsScreen.CLOUD_ACCOUNT -> CloudAccountScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME})
+                            DiagnosticsScreen.CLOUD_ACCOUNT -> CloudAccountScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME},onSignOut=onSignOut)
                             DiagnosticsScreen.ZIP_RECORDS -> ZipRecordsScreen(database,onBack={screen=DiagnosticsScreen.HOME})
                             DiagnosticsScreen.DEVICE_INVENTORY -> DeviceInventoryScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME},onOpenCloudAccount={screen=DiagnosticsScreen.CLOUD_ACCOUNT})
                             DiagnosticsScreen.EVENTS -> {
@@ -249,7 +249,7 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                             TextButton(onClick={rightOpen=false}){Text("Close ✕")}
                         }
                         DrawerSection("Cloud Account","Pair Editor installations",rightExpanded=="Cloud Account",{rightExpanded=if(rightExpanded=="Cloud Account")"" else "Cloud Account"}) {
-                            CloudAccountScreen(cloudAccountRepository,onBack={},inline=true)
+                            CloudAccountScreen(cloudAccountRepository,onBack={},inline=true,onSignOut=onSignOut)
                         }
                         DrawerSection("ZIP Records","Import, export and inspect archives",rightExpanded=="ZIP Records",{rightExpanded=if(rightExpanded=="ZIP Records")"" else "ZIP Records"}) {
                             ZipRecordsScreen(database,onBack={},inline=true)
