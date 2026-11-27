@@ -53,6 +53,8 @@ fun CloudAccountScreen(
     var errorMessage by remember { mutableStateOf("") }
     var enrollment by remember { mutableStateOf<EnrollmentCode?>(null) }
     var secondsLeft by remember { mutableIntStateOf(0) }
+    var adminStatus by remember { mutableStateOf<OwnerAdminStatus?>(null) }
+    var setupCode by remember { mutableStateOf("") }
 
     LaunchedEffect(enrollment?.expiresAt) {
         val expiry = enrollment?.expiresAt ?: return@LaunchedEffect
@@ -63,6 +65,24 @@ fun CloudAccountScreen(
             }.getOrDefault(0)
             if (secondsLeft <= 0) break
             delay(1000)
+        }
+    }
+
+    LaunchedEffect(signedIn) {
+        if (signedIn) {
+            busy = true
+            errorMessage = ""
+            try {
+                adminStatus = repository.fetchOwnerAdminStatus()
+            } catch (error: Exception) {
+                adminStatus = null
+                errorMessage = error.message ?: "Unable to verify Owner Admin registration."
+            } finally {
+                busy = false
+            }
+        } else {
+            adminStatus = null
+            setupCode = ""
         }
     }
 
@@ -145,29 +165,98 @@ fun CloudAccountScreen(
                     style = MaterialTheme.typography.bodySmall
                 )
             } else {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Workspace connected", style = MaterialTheme.typography.titleMedium)
-                        Text("This Diagnostics app is signed in. Generate a one-time code to pair your Nexus3D APK.")
-                        Button(
-                            enabled = !busy,
-                            onClick = {
-                                busy = true
-                                errorMessage = ""
-                                message = ""
-                                scope.launch {
-                                    try {
-                                        enrollment = repository.createEnrollmentCode()
-                                        secondsLeft = enrollment?.expiresInSeconds ?: 600
-                                        message = "Enrollment code generated. Enter it in Nexus3D APK."
-                                    } catch (error: Exception) {
-                                        errorMessage = error.message ?: "Unable to generate enrollment code."
-                                    } finally {
-                                        busy = false
-                                    }
+                when {
+                    adminStatus == null -> {
+                        Text(
+                            "Checking secure Owner Admin registration…",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    adminStatus?.registered == true -> {
+                        val status = adminStatus!!
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("OWNER ADMIN", style = MaterialTheme.typography.titleMedium)
+                                Text("Permanent Admin ID: ${status.adminId ?: "Unavailable"}")
+                                Text("Role: ${status.role ?: "owner_admin"}")
+                                Text("Status: ${status.status ?: "unknown"}")
+                                if (status.status == "active") {
+                                    Text("Owner Admin registration is verified. You can now pair Nexus3D Editor installations.")
+                                    Button(
+                                        enabled = !busy,
+                                        onClick = {
+                                            busy = true
+                                            errorMessage = ""
+                                            message = ""
+                                            scope.launch {
+                                                try {
+                                                    enrollment = repository.createEnrollmentCode()
+                                                    secondsLeft = enrollment?.expiresInSeconds ?: 600
+                                                    message = "Enrollment code generated. Enter it in Nexus3D APK."
+                                                } catch (error: Exception) {
+                                                    errorMessage = error.message ?: "Unable to generate enrollment code."
+                                                } finally {
+                                                    busy = false
+                                                }
+                                            }
+                                        }
+                                    ) { Text("＋  Generate Enrollment Code") }
+                                } else {
+                                    Text(
+                                        "This Owner Admin account is locked. Enrollment and Admin actions are disabled.",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
                                 }
                             }
-                        ) { Text("＋  Generate Enrollment Code") }
+                        }
+                    }
+                    adminStatus?.eligible == true -> {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("OWNER ADMIN REGISTRATION", style = MaterialTheme.typography.titleMedium)
+                                Text("Verified email confirmed. Enter the one-time Admin Setup Code to claim the permanent Owner Admin ID.")
+                                OutlinedTextField(
+                                    value = setupCode,
+                                    onValueChange = { setupCode = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("One-Time Admin Setup Code") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    singleLine = true
+                                )
+                                Button(
+                                    enabled = !busy && setupCode.trim().length >= 20,
+                                    onClick = {
+                                        busy = true
+                                        errorMessage = ""
+                                        message = ""
+                                        scope.launch {
+                                            try {
+                                                adminStatus = repository.registerOwnerAdmin(setupCode)
+                                                setupCode = ""
+                                                message = "Permanent Owner Admin registration completed."
+                                            } catch (error: Exception) {
+                                                errorMessage = error.message ?: "Owner Admin registration failed."
+                                            } finally {
+                                                busy = false
+                                            }
+                                        }
+                                    }
+                                ) { Text("Complete Owner Admin Registration") }
+                            }
+                        }
+                    }
+                    else -> {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Owner Admin access restricted", style = MaterialTheme.typography.titleMedium)
+                                if (adminStatus?.emailVerified == false) {
+                                    Text("Verify this account's email address first, then sign in again.")
+                                } else {
+                                    Text("This verified account is not authorized for the permanent Owner Admin role.")
+                                }
+                                Text("Regular sign-in does not grant Admin access or permission to generate enrollment codes.")
+                            }
+                        }
                     }
                 }
 
@@ -180,10 +269,7 @@ fun CloudAccountScreen(
                                 else "This code has expired. Generate a new one.",
                                 color = if (secondsLeft > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                             )
-                            Text(
-                                code.code,
-                                style = MaterialTheme.typography.titleMedium
-                            )
+                            Text(code.code, style = MaterialTheme.typography.titleMedium)
                             Button(
                                 enabled = secondsLeft > 0,
                                 onClick = { clipboard.setText(AnnotatedString(code.code)); message = "Enrollment code copied." }
@@ -198,6 +284,7 @@ fun CloudAccountScreen(
                         repository.signOut()
                         signedIn = false
                         enrollment = null
+                        adminStatus = null
                         message = "Signed out."
                     }
                 ) { Text("Sign Out") }
