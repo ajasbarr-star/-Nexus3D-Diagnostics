@@ -161,8 +161,25 @@ fun CloudAccountScreen(
                         }
                     ) { Text("Create Account") }
                 }
+                OutlinedButton(
+                    enabled = !busy && email.contains("@"),
+                    onClick = {
+                        busy = true
+                        errorMessage = ""
+                        message = ""
+                        scope.launch {
+                            try {
+                                message = repository.resendSignupConfirmation(email)
+                            } catch (error: Exception) {
+                                errorMessage = error.message ?: "Unable to request a confirmation email."
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                ) { Text("Resend Confirmation Email") }
                 Text(
-                    "Use an email address you can access. Password must be at least 6 characters.",
+                    "If this email already has an account, use Sign In. If it is not verified yet, request another confirmation email. Password must be at least 6 characters.",
                     style = MaterialTheme.typography.bodySmall
                 )
             } else {
