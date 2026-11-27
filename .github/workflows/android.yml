@@ -8,6 +8,7 @@ on:
       - feature/nexus3d-editor-diagnostics-bridge
       - feature/nd-supabase-multidevice-phase1
       - feature/automatic-device-release-beta-management
+      - nexus3d/diagnostics-ipc-idempotency
   workflow_dispatch:
 
 concurrency:
