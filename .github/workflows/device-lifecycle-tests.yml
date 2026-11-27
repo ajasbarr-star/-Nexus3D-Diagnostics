@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - repair/accurate-apk-connection-status
+      - feature/automatic-device-release-beta-management
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - '.github/workflows/device-lifecycle-tests.yml'
   pull_request:
     branches:
       - feature/nd-supabase-multidevice-phase1
@@ -11,12 +16,6 @@ on:
     paths:
       - 'supabase/functions/**'
       - 'supabase/migrations/**'
-      - '.github/workflows/device-lifecycle-tests.yml'
-  push:
-    branches:
-      - feature/automatic-device-release-beta-management
-    paths:
-      - 'supabase/functions/**'
       - '.github/workflows/device-lifecycle-tests.yml'
 
 permissions:
@@ -39,8 +38,7 @@ jobs:
         run: deno fmt supabase/functions/_shared/device-lifecycle.ts supabase/functions/tests/device-lifecycle.test.ts
 
       - name: Check Owner Admin Edge Function formatting and types
-        run: |
-          deno check supabase/functions/owner-admin/index.ts supabase/functions/create-enrollment-code/index.ts
+        run: deno check supabase/functions/owner-admin/index.ts supabase/functions/create-enrollment-code/index.ts
 
       - name: Run lifecycle regression tests
         run: deno test --no-check supabase/functions/tests/device-lifecycle.test.ts
