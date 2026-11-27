@@ -98,8 +98,14 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
             event.details.contains(searchText, ignoreCase = true) ||
             event.source.contains(searchText, ignoreCase = true)
 
-        val matchesSeverity = severityFilter == "ALL" ||
-            event.severity.equals(severityFilter, ignoreCase = true)
+        val matchesSeverity = when (severityFilter) {
+            "ALL" -> true
+            "ERROR" -> event.severity.equals("ERROR", ignoreCase = true) ||
+                event.severity.equals("FATAL", ignoreCase = true)
+            "WARN" -> event.severity.equals("WARN", ignoreCase = true) ||
+                event.severity.equals("WARNING", ignoreCase = true)
+            else -> event.severity.equals(severityFilter, ignoreCase = true)
+        }
 
         matchesSearch && matchesSeverity
     }
