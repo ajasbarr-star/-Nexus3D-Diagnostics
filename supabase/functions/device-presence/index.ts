@@ -32,7 +32,7 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
   const { data: device, error: deviceError } = await admin
     .from("devices")
-    .select("id, status")
+    .select("id, workspace_id, status, app_version, app_build_number, app_version_code")
     .eq("installation_id", installationId)
     .maybeSingle();
   if (deviceError) return jsonResponse({ error: "device_lookup_failed" }, 500);
@@ -81,8 +81,38 @@ Deno.serve(async (req: Request) => {
     if (deviceName) update.device_name = deviceName;
   }
 
+  const versionChanged = Boolean(appVersion) && (
+    appVersion !== (device.app_version ?? "unknown") ||
+    (buildNumber !== null && buildNumber !== device.app_build_number) ||
+    (versionCode !== null && versionCode !== device.app_version_code)
+  );
+
   const { error: updateError } = await admin.from("devices").update(update).eq("id", device.id);
   if (updateError) return jsonResponse({ error: "presence_update_failed" }, 500);
 
-  return jsonResponse({ presenceState: state, lastActiveAt: state === "online" ? now : undefined });
+  // Record a version-history entry only when the authenticated installed APK
+  // changes; ordinary 45-second heartbeats never create duplicate history rows.
+  if (versionChanged && appVersion) {
+    const { error: historyError } = await admin.from("installation_events").insert({
+      workspace_id: device.workspace_id,
+      device_id: device.id,
+      event_type: "verified",
+      app_version: appVersion,
+      version_code: versionCode,
+      build_number: buildNumber,
+      details: "Installed Nexus3D APK version/build confirmed by authenticated device heartbeat.",
+      occurred_at: now,
+    });
+    if (historyError) {
+      console.error("installation_version_history_write_failed", historyError);
+      return jsonResponse({ error: "installation_version_history_write_failed" }, 500);
+    }
+  }
+
+  return jsonResponse({
+    presenceState: state,
+    lastActiveAt: state === "online" ? now : undefined,
+    metadataUpdated: true,
+    versionHistoryUpdated: versionChanged,
+  });
 });
