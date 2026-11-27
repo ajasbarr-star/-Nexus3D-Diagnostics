@@ -1,6 +1,7 @@
 package com.nexus3d.diagnostics
 
 import android.content.Context
+import android.net.Uri
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.Dispatchers
@@ -8,6 +9,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.json.JSONArray
 import java.net.HttpURLConnection
+import java.net.URLEncoder
 import java.net.URL
 
 data class EnrollmentCode(
@@ -20,6 +22,7 @@ class SupabaseAccountRepository(context: Context) {
     companion object {
         private const val SUPABASE_URL = "https://rupftghvjmalntjoesnv.supabase.co"
         private const val SUPABASE_KEY = "sb_publishable_t3-BF5smZ21bzc59TVrYIw_4MHGG3Dq"
+        private const val AUTH_REDIRECT_URI = "com.nexus3d.diagnostics://auth-callback"
         private const val PREFS = "nexus3d_cloud_auth"
         private const val ACCESS = "access_token"
         private const val REFRESH = "refresh_token"
@@ -44,7 +47,7 @@ class SupabaseAccountRepository(context: Context) {
 
     suspend fun signUp(email: String, password: String): String = withContext(Dispatchers.IO) {
         val result = request(
-            path = "/auth/v1/signup",
+            path = "/auth/v1/signup?redirect_to=" + URLEncoder.encode(AUTH_REDIRECT_URI, "UTF-8"),
             method = "POST",
             body = JSONObject().put("email", email.trim()).put("password", password)
         )
@@ -276,6 +279,42 @@ class SupabaseAccountRepository(context: Context) {
 
     fun signOut() {
         preferences.edit().clear().apply()
+    }
+
+
+    /**
+     * Handles the Supabase implicit-flow callback delivered by the Android deep link.
+     * The access and refresh tokens are stored in the existing encrypted session store.
+     */
+    fun handleAuthCallback(uri: Uri): String? {
+        if (uri.scheme != "com.nexus3d.diagnostics" || uri.host != "auth-callback") return null
+
+        val fragmentParams = Uri.parse("https://callback.invalid/?${uri.fragment.orEmpty()}")
+        fun parameter(name: String): String? =
+            uri.getQueryParameter(name) ?: fragmentParams.getQueryParameter(name)
+
+        val errorCode = parameter("error_code")
+        if (!errorCode.isNullOrBlank()) {
+            val description = parameter("error_description").orEmpty()
+                .replace("+", " ")
+                .take(240)
+            return "$errorCode: " + description.ifBlank { "Email confirmation failed. Request a new confirmation email." }
+        }
+
+        val accessToken = parameter("access_token")
+        val refreshToken = parameter("refresh_token")
+        if (accessToken.isNullOrBlank() || refreshToken.isNullOrBlank()) {
+            return "The confirmation callback did not contain a valid session. Sign in again or request a new confirmation email."
+        }
+
+        val expiresIn = parameter("expires_in")?.toLongOrNull()?.coerceAtLeast(60L) ?: 3600L
+        saveSessionIfPresent(
+            JSONObject()
+                .put("access_token", accessToken)
+                .put("refresh_token", refreshToken)
+                .put("expires_in", expiresIn)
+        )
+        return "Email confirmed. Your Diagnostics session is ready."
     }
 
     private fun saveSessionIfPresent(json: JSONObject) {
