@@ -1,6 +1,9 @@
 name: Nexus3D Device Lifecycle Tests
 
 on:
+  push:
+    branches:
+      - repair/accurate-apk-connection-status
   pull_request:
     branches:
       - feature/nd-supabase-multidevice-phase1
