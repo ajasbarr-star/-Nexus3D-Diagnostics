@@ -31,6 +31,32 @@ class DevicePresenceFormattingTest {
         assertEquals("11-18-2026", formatLastActive("2026-11-18T12:00:00Z", now, zone))
     }
 
+
+    @Test fun formatsInstallationDateAndStableInstallationId() {
+        val registeredAt = "2026-11-25T16:00:00Z"
+        assertEquals("11/26/2026", formatInstallationDate(registeredAt, zone))
+        assertEquals(
+            "Nov26/2026-123e4567-e89b-12d3-a456-426614174000",
+            formatInstallationId(registeredAt, "123e4567-e89b-12d3-a456-426614174000", zone)
+        )
+    }
+
+    @Test fun formatsApkActiveTimeInLocalTimezone() {
+        assertEquals("9:06 AM", formatActiveTime("2026-11-26T01:06:00Z", zone))
+    }
+
+    @Test fun formatsRealVersionHistoryWithoutInventingMissingEvents() {
+        val update = InstallationVersion(
+            appVersion = "v1.0.02",
+            versionCode = 2L,
+            buildNumber = 887L,
+            eventType = "installed",
+            occurredAt = "2026-11-25T16:00:00Z"
+        )
+        assertEquals("v1.0.02 - 11/26/2026", formatVersionEvent(update, zone))
+        assertEquals("Not recorded", formatVersionEvent(null, zone))
+    }
+
     @Test fun presenceRequiresRecentForegroundHeartbeat() {
         assertTrue(isDevicePresenceOnline("online", "2026-11-26T11:59:30Z", now))
         assertFalse(isDevicePresenceOnline("online", "2026-11-26T11:57:00Z", now))
