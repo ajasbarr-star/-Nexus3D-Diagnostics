@@ -33,14 +33,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Image
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private enum class StartupStage { SPLASH, AUTH, CONSENT, SETUP_CODE, ADMIN_ID, DASHBOARD }
+private enum class StartupStage { AUTH, CONSENT, SETUP_CODE, ADMIN_ID, DASHBOARD }
 
 @Composable
 fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAccountRepository) {
-    var stage by remember { mutableStateOf(StartupStage.SPLASH) }
+    var stage by remember { mutableStateOf(StartupStage.AUTH) }
     var registerMode by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -52,11 +51,15 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
     var error by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
+    fun clearSessionSafely() {
+        runCatching { repository.signOut() }
+    }
+
     fun routeFor(owner: OwnerAdminStatus) {
         status = owner
         when {
             !owner.emailVerified || !owner.eligible -> {
-                repository.signOut()
+                clearSessionSafely()
                 stage = StartupStage.AUTH
                 error = if (!owner.emailVerified) "Verify your Gmail address using the email link, then sign in again."
                     else "This Gmail account is not authorized as the permanent Owner Admin."
@@ -64,7 +67,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
             !owner.consentAccepted -> stage = StartupStage.CONSENT
             owner.registered && owner.status == "active" && !owner.adminId.isNullOrBlank() -> stage = StartupStage.DASHBOARD
             owner.registered -> {
-                repository.signOut()
+                clearSessionSafely()
                 stage = StartupStage.AUTH
                 error = "The registered Owner Admin account is locked or inactive. Dashboard access is blocked."
             }
@@ -77,21 +80,24 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
     }
 
     LaunchedEffect(Unit) {
-        delay(650)
-        if (repository.hasSession()) {
-            try {
+        try {
+            if (repository.hasSession()) {
                 verifyCurrentSession()
-            } catch (e: Exception) {
-                repository.signOut()
+            } else {
                 stage = StartupStage.AUTH
-                error = e.message ?: "Could not verify the saved Owner Admin session. Please sign in again."
             }
-        } else stage = StartupStage.AUTH
-        busy = false
+        } catch (e: Exception) {
+            clearSessionSafely()
+            stage = StartupStage.AUTH
+            error = "Saved session could not be opened or verified. Please sign in again. " +
+                (e.message ?: "")
+        } finally {
+            busy = false
+        }
     }
 
     BackHandler(enabled = stage == StartupStage.CONSENT || stage == StartupStage.SETUP_CODE || stage == StartupStage.ADMIN_ID) {
-        repository.signOut()
+        clearSessionSafely()
         status = null
         stage = StartupStage.AUTH
         message = ""
@@ -101,22 +107,35 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
     MaterialTheme {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             when (stage) {
-                StartupStage.SPLASH -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Image(painter = painterResource(id = R.mipmap.ic_launcher), contentDescription = "Nexus3D Diagnostics logo", modifier = Modifier.size(96.dp))
-                        Text("Nexus3D Diagnostics", style = MaterialTheme.typography.headlineMedium)
-                        Text("SECURE CENTRAL RECEIVER", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                        CircularProgressIndicator()
-                        Text("Verifying Owner Admin session…", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
                 StartupStage.AUTH -> Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Spacer(Modifier.padding(top = 12.dp))
-                    Text("Nexus3D Diagnostics", style = MaterialTheme.typography.headlineMedium)
-                    Text(if (registerMode) "OWNER ADMIN REGISTRATION" else "OWNER ADMIN LOGIN", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(18.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                                contentDescription = "Nexus3D Diagnostics logo",
+                                modifier = Modifier.size(72.dp)
+                            )
+                            Text("Nexus3D Diagnostics", style = MaterialTheme.typography.headlineMedium)
+                            Text(
+                                if (registerMode) "OWNER ADMIN REGISTRATION" else "OWNER ADMIN LOGIN",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                "SECURE CENTRAL RECEIVER",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
                     Text("Only the verified, permanently registered Owner Admin can access the Central Receiver.")
                     OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Gmail address") }, singleLine = true)
                     OutlinedTextField(value = password, onValueChange = { password = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
@@ -183,7 +202,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                         }
                     }) { Text("I AGREE") }
                     OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
-                        repository.signOut(); status = null; stage = StartupStage.AUTH
+                        clearSessionSafely(); status = null; stage = StartupStage.AUTH
                         message = "Consent declined. Diagnostics access is not enabled."
                     }) { Text("I DO NOT AGREE") }
                     if (busy) CircularProgressIndicator()
@@ -209,7 +228,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                             finally { busy = false }
                         }
                     }) { Text("Claim Permanent Owner Admin ID") }
-                    TextButton(enabled = !busy, onClick = { repository.signOut(); stage = StartupStage.AUTH; setupCode = "" }) { Text("Cancel and Sign Out") }
+                    TextButton(enabled = !busy, onClick = { clearSessionSafely(); stage = StartupStage.AUTH; setupCode = "" }) { Text("Cancel and Sign Out") }
                     if (busy) CircularProgressIndicator()
                     if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
                 }
@@ -226,7 +245,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                 }
                 StartupStage.DASHBOARD -> Box(Modifier.fillMaxSize()) {
                     DiagnosticsHome(database, repository, onSignOut = {
-                        repository.signOut()
+                        clearSessionSafely()
                         status = null
                         stage = StartupStage.AUTH
                         message = "Signed out securely."
@@ -235,7 +254,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                     TextButton(
                         modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                         onClick = {
-                            repository.signOut()
+                            clearSessionSafely()
                             status = null
                             stage = StartupStage.AUTH
                             message = "Signed out securely."
