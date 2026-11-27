@@ -23,6 +23,10 @@ Deno.serve(async (req: Request) => {
   const manufacturer = clean(info.manufacturer, 80);
   const model = clean(info.model, 100);
   const androidVersion = clean(info.androidVersion, 40);
+  const cpuInfo = clean(info.cpu, 180);
+  const gpuInfo = clean(info.gpu, 180);
+  const ramBytes = Number.isSafeInteger(info.ramBytes) && Number(info.ramBytes) > 0 ? Number(info.ramBytes) : null;
+  const romBytes = Number.isSafeInteger(info.romBytes) && Number(info.romBytes) > 0 ? Number(info.romBytes) : null;
   const appVersion = clean(body.appVersion, 40) || "unknown";
   const buildNumber = Number.isSafeInteger(body.buildNumber) ? Number(body.buildNumber) : null;
   const versionCode = Number.isSafeInteger(body.versionCode) ? Number(body.versionCode) : null;
@@ -39,8 +43,9 @@ Deno.serve(async (req: Request) => {
     if (reactivation === "installation_revoked") return jsonResponse({ error: "installation_revoked" }, 403);
     if (reactivation === "identity_conflict") return jsonResponse({ error: "installation_identity_conflict" }, 409);
     const { data: updated, error } = await admin.from("devices").update({
-      manufacturer, model, android_version: androidVersion, app_version: appVersion,
-      app_build_number: buildNumber, app_version_code: versionCode,
+      manufacturer, model, android_version: androidVersion,
+      cpu_info: cpuInfo, gpu_info: gpuInfo, ram_bytes: ramBytes, rom_bytes: romBytes,
+      app_version: appVersion, app_build_number: buildNumber, app_version_code: versionCode,
       status: "active", archived_at: null,
       // Registration is not proof that the Editor process is currently online.
       // last_seen_at starts the inactivity window; presence is set only by heartbeat.
@@ -54,8 +59,9 @@ Deno.serve(async (req: Request) => {
   const { data: created, error } = await admin.from("devices").insert({
     installation_id: installationId, workspace_id: workspaceId,
     device_name: [manufacturer, model].filter(Boolean).join(" ").slice(0, 100) || "Nexus3D device",
-    manufacturer, model, android_version: androidVersion, app_version: appVersion,
-    app_build_number: buildNumber, app_version_code: versionCode, platform: "android",
+    manufacturer, model, android_version: androidVersion,
+    cpu_info: cpuInfo, gpu_info: gpuInfo, ram_bytes: ramBytes, rom_bytes: romBytes,
+    app_version: appVersion, app_build_number: buildNumber, app_version_code: versionCode, platform: "android",
     status: "active", archived_at: null, last_seen_at: new Date().toISOString(),
     presence_state: "offline", presence_updated_at: null, registration_method: "automatic"
   }).select("id, installation_id, device_name, status").single();
