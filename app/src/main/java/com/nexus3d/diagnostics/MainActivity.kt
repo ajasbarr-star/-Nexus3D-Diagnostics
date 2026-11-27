@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
         ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2, DiagnosticsDatabase.MIGRATION_2_3).build()
 
         setContent {
-            DiagnosticsHome(database, cloudAccountRepository)
+            DiagnosticsStartupGate(database, cloudAccountRepository)
         }
     }
 }
@@ -84,7 +84,7 @@ private enum class DiagnosticsScreen {
 }
 
 @Composable
-private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository) {
+internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository) {
     val context = LocalContext.current
     val events by database.eventDao().observeAll().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
