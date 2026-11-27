@@ -21,6 +21,22 @@ Deno.serve(async (req: Request) => {
   if (userError || !userData.user) return jsonResponse({ error: "unauthorized" }, 401);
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+
+  // Only the registered, active Owner Admin may provision Editor enrollment codes.
+  const { data: ownerAdmin, error: ownerAdminError } = await admin
+    .from("nexus3d_admin_accounts")
+    .select("id,role,status")
+    .eq("auth_user_id", userData.user.id)
+    .maybeSingle();
+
+  if (ownerAdminError) {
+    console.error("owner_admin_lookup_failed", ownerAdminError);
+    return jsonResponse({ error: "admin_authorization_unavailable" }, 500);
+  }
+  if (!ownerAdmin || ownerAdmin.role !== "owner_admin" || ownerAdmin.status !== "active") {
+    return jsonResponse({ error: "owner_admin_required" }, 403);
+  }
+
   let { data: workspace, error: workspaceError } = await admin
     .from("workspaces")
     .select("id")
