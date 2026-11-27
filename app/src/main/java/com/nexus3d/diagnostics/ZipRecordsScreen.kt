@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -56,7 +57,7 @@ import java.util.zip.ZipOutputStream
 private data class ZipRecordFile(val file: File, val modified: Long)
 
 @Composable
-fun ZipRecordsScreen(database: DiagnosticsDatabase, onBack: () -> Unit) {
+fun ZipRecordsScreen(database: DiagnosticsDatabase, onBack: () -> Unit, inline: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var records by remember { mutableStateOf<List<ZipRecordFile>>(emptyList()) }
@@ -89,8 +90,8 @@ fun ZipRecordsScreen(database: DiagnosticsDatabase, onBack: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.fillMaxWidth().then(if (inline) Modifier else Modifier.fillMaxSize()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (!inline) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text("← Overview") }
             Text("ARCHIVE MANAGEMENT", style = MaterialTheme.typography.titleLarge)
         }
@@ -117,7 +118,7 @@ fun ZipRecordsScreen(database: DiagnosticsDatabase, onBack: () -> Unit) {
         if (records.isEmpty()) {
             Text("No ZIP archives stored yet. Import an existing report or export the current diagnostic events.")
         } else {
-            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(if (inline) Modifier.heightIn(max = 360.dp) else Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(records, key = { it.file.absolutePath }) { record ->
                     Card(Modifier.fillMaxWidth().clickable { inspectFile = record.file }) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
