@@ -11,7 +11,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
-import org.json.JSONObject
 
 /**
  * Private-by-identity IPC endpoint for the Nexus3D Editor Test APK.
@@ -23,8 +22,10 @@ class DiagnosticBridgeProvider : ContentProvider() {
             requireNotNull(context).applicationContext,
             DiagnosticsDatabase::class.java,
             "nexus3d-diagnostics.db"
-        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2)
-            .build()
+        ).addMigrations(
+            DiagnosticsDatabase.MIGRATION_1_2,
+            DiagnosticsDatabase.MIGRATION_2_3
+        ).build()
     }
 
     override fun onCreate(): Boolean = true
@@ -50,6 +51,7 @@ class DiagnosticBridgeProvider : ContentProvider() {
         }
 
         val accepted = ArrayList<DiagnosticEvent>(array.length())
+        val acknowledgedEventIds = ArrayList<String>(array.length())
         for (index in 0 until array.length()) {
             val item = array.optJSONObject(index)
                 ?: throw IllegalArgumentException("Invalid event at index $index")
@@ -57,26 +59,22 @@ class DiagnosticBridgeProvider : ContentProvider() {
             val severity = item.optString("severity").uppercase()
             val title = item.optString("title")
             val details = item.optString("details")
-            val sessionId = item.optString("sessionId").takeIf { it.isNotBlank() }
+            val sessionId = item.optString("sessionId")
             val timestamp = item.optLong("timestampEpochMs", System.currentTimeMillis())
-            val eventId = item.optString("eventId").takeIf { it.isNotBlank() }
-                ?: java.util.UUID.randomUUID().toString()
-            val deviceId = item.optString("deviceId").takeIf { it.isNotBlank() }
-                ?: "local-bridge-unknown"
-            val sequence = item.optLong("sequence", timestamp)
+            val eventId = item.optString("eventId")
+            val deviceId = item.optString("deviceId")
+            val sequence = item.optLong("sequence", -1L)
             val schemaVersion = item.optInt("schemaVersion", 1)
 
             if (!isUuid(eventId)) throw IllegalArgumentException("Invalid event ID")
-            if (deviceId != "local-bridge-unknown" && !isUuid(deviceId)) {
-                throw IllegalArgumentException("Invalid device ID")
-            }
+            if (!isUuid(deviceId)) throw IllegalArgumentException("Missing or invalid canonical device ID")
             if (sequence < 0L) throw IllegalArgumentException("Invalid event sequence")
             if (schemaVersion != 1) throw IllegalArgumentException("Unsupported event schema version")
             if (source !in ALLOWED_SOURCES) throw IllegalArgumentException("Unsupported event source")
             if (severity !in ALLOWED_SEVERITIES) throw IllegalArgumentException("Unsupported event severity")
             if (title.isBlank() || title.length > 240) throw IllegalArgumentException("Invalid event title")
             if (details.length > MAX_DETAILS_CHARS) throw IllegalArgumentException("Event details exceed the limit")
-            if (sessionId != null && sessionId.length > 128) throw IllegalArgumentException("Invalid session ID")
+            if (sessionId.isBlank() || sessionId.length > 128) throw IllegalArgumentException("Missing or invalid session ID")
 
             accepted += DiagnosticEvent(
                 source = source,
@@ -90,16 +88,22 @@ class DiagnosticBridgeProvider : ContentProvider() {
                 sequence = sequence,
                 schemaVersion = schemaVersion
             )
+            acknowledgedEventIds += eventId
         }
 
-        val ids = runBlocking {
+        val insertedIds = runBlocking {
             withContext(Dispatchers.IO) {
                 database.eventDao().insertAll(accepted)
             }
         }
+        val insertedCount = insertedIds.count { it != -1L }
+        val duplicateCount = accepted.size - insertedCount
         return Bundle().apply {
             putBoolean("ok", true)
-            putInt("accepted", ids.size)
+            putInt("accepted", accepted.size)
+            putInt("inserted", insertedCount)
+            putInt("duplicates", duplicateCount)
+            putStringArrayList("acknowledgedEventIds", acknowledgedEventIds)
         }
     }
 
@@ -123,9 +127,9 @@ class DiagnosticBridgeProvider : ContentProvider() {
         private const val MAX_PAYLOAD_CHARS = 128 * 1024
         private const val MAX_DETAILS_CHARS = 2400
         private val ALLOWED_SOURCES = setOf("RDS_LOGCAT", "RIT_TRACE", "RUNTIME")
+        private val ALLOWED_SEVERITIES = setOf("VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL")
 
         private fun isUuid(value: String): Boolean =
             runCatching { java.util.UUID.fromString(value) }.isSuccess
-        private val ALLOWED_SEVERITIES = setOf("VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL")
     }
 }
