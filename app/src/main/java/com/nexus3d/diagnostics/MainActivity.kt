@@ -228,6 +228,22 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                 }
 
                 ToolCard(
+                    "Errors",
+                    "${events.count { it.severity.equals("ERROR", ignoreCase = true) || it.severity.equals("FATAL", ignoreCase = true) }} received error report(s)"
+                ) {
+                    severityFilter = "ERROR"
+                    screen = DiagnosticsScreen.EVENTS
+                }
+
+                ToolCard(
+                    "Warnings",
+                    "${events.count { it.severity.equals("WARN", ignoreCase = true) }} received warning report(s)"
+                ) {
+                    severityFilter = "WARN"
+                    screen = DiagnosticsScreen.EVENTS
+                }
+
+                ToolCard(
                     "Add Device / Cloud Account",
                     "Sign in and generate a 10-minute enrollment code"
                 ) {
