@@ -64,6 +64,10 @@ Deno.serve(async (req: Request) => {
   const manufacturer = clean(info.manufacturer, 80);
   const model = clean(info.model, 100);
   const androidVersion = clean(info.androidVersion, 40);
+  const cpuInfo = clean(info.cpu, 180);
+  const gpuInfo = clean(info.gpu, 180);
+  const ramBytes = Number.isSafeInteger(info.ramBytes) && Number(info.ramBytes) > 0 ? Number(info.ramBytes) : null;
+  const romBytes = Number.isSafeInteger(info.romBytes) && Number(info.romBytes) > 0 ? Number(info.romBytes) : null;
   const appVersion = clean(body.appVersion, 40);
   const buildNumber = Number.isSafeInteger(body.buildNumber) && Number(body.buildNumber) >= 0
     ? Number(body.buildNumber) : null;
@@ -73,6 +77,10 @@ Deno.serve(async (req: Request) => {
   if (manufacturer) update.manufacturer = manufacturer;
   if (model) update.model = model;
   if (androidVersion) update.android_version = androidVersion;
+  if (cpuInfo) update.cpu_info = cpuInfo;
+  if (gpuInfo) update.gpu_info = gpuInfo;
+  if (ramBytes !== null) update.ram_bytes = ramBytes;
+  if (romBytes !== null) update.rom_bytes = romBytes;
   if (appVersion) update.app_version = appVersion;
   if (buildNumber !== null) update.app_build_number = buildNumber;
   if (versionCode !== null) update.app_version_code = versionCode;
