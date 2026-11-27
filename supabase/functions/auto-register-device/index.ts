@@ -43,7 +43,8 @@ Deno.serve(async (req: Request) => {
       app_build_number: buildNumber, app_version_code: versionCode,
       status: "active", archived_at: null,
       // Registration is not proof that the Editor process is currently online.
-      // Presence is set only by the authenticated device-presence heartbeat.
+      // last_seen_at starts the inactivity window; presence is set only by heartbeat.
+      last_seen_at: new Date().toISOString(),
       presence_state: "offline", presence_updated_at: null
     }).eq("id", existing.id).select("id, installation_id, device_name, status").single();
     if (error || !updated) return jsonResponse({ error: "device_update_failed" }, 500);
@@ -55,8 +56,8 @@ Deno.serve(async (req: Request) => {
     device_name: [manufacturer, model].filter(Boolean).join(" ").slice(0, 100) || "Nexus3D device",
     manufacturer, model, android_version: androidVersion, app_version: appVersion,
     app_build_number: buildNumber, app_version_code: versionCode, platform: "android",
-    status: "active", archived_at: null, presence_state: "offline", presence_updated_at: null,
-    registration_method: "automatic"
+    status: "active", archived_at: null, last_seen_at: new Date().toISOString(),
+    presence_state: "offline", presence_updated_at: null, registration_method: "automatic"
   }).select("id, installation_id, device_name, status").single();
   if (error || !created) return jsonResponse({ error: "device_registration_failed" }, 500);
   const { error: tokenError } = await admin.from("device_tokens").insert({ device_id: created.id, token_hash: tokenHash });
