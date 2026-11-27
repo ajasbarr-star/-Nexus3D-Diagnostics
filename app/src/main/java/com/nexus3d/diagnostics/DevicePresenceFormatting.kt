@@ -47,3 +47,39 @@ internal fun formatLastActive(
     }
     return localTime.format(DateTimeFormatter.ofPattern("MM-dd-yyyy", Locale.US))
 }
+
+internal fun formatInstallationDate(
+    value: String?,
+    zone: ZoneId = ZoneId.systemDefault()
+): String {
+    val instant = value?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return "Not reported"
+    return instant.atZone(zone).format(DateTimeFormatter.ofPattern("MM/dd/yyyy", Locale.US))
+}
+
+internal fun formatInstallationId(
+    registeredAt: String?,
+    installationId: String,
+    zone: ZoneId = ZoneId.systemDefault()
+): String {
+    val instant = registeredAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
+    val datePrefix = instant?.atZone(zone)
+        ?.format(DateTimeFormatter.ofPattern("MMMdd/yyyy", Locale.US))
+        ?: "Registration date unavailable"
+    return "$datePrefix-$installationId"
+}
+
+internal fun formatActiveTime(
+    value: String?,
+    zone: ZoneId = ZoneId.systemDefault()
+): String {
+    val instant = value?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return "Not yet active"
+    return instant.atZone(zone).format(DateTimeFormatter.ofPattern("h:mm a", Locale.US))
+}
+
+internal fun formatVersionEvent(event: InstallationVersion?, zone: ZoneId = ZoneId.systemDefault()): String {
+    if (event == null) return "Not recorded"
+    val date = event.occurredAt?.let { raw ->
+        runCatching { Instant.parse(raw).atZone(zone).format(DateTimeFormatter.ofPattern("MM/dd/yyyy", Locale.US)) }.getOrNull()
+    } ?: "date not reported"
+    return "${event.appVersion} - $date"
+}
