@@ -305,7 +305,8 @@ private suspend fun importArchive(context: Context, database: DiagnosticsDatabas
                             val details = item.optString("details", "")
                             val deviceId = item.optString("deviceId", "imported-unknown")
                             val sessionId = item.optString("sessionId").takeIf { it.isNotBlank() && it != "null" }
-                            require(sourceName.length <= 80 && title.length <= 240 && details.length <= 24000) {
+                            val provenance = "[IMPORTED ARCHIVE: ${target.name}; importedAtEpochMs=$importedAt]\n"
+                            require(sourceName.length <= 80 && title.length <= 240 && provenance.length + details.length <= 24000) {
                                 "Imported event field exceeds the allowed length"
                             }
                             require(deviceId.isNotBlank() && deviceId.length <= 128) { "Invalid imported device ID" }
@@ -315,7 +316,7 @@ private suspend fun importArchive(context: Context, database: DiagnosticsDatabas
                                 source = sourceName,
                                 severity = severity,
                                 title = title,
-                                details = "[IMPORTED ARCHIVE: ${target.name}; importedAtEpochMs=$importedAt]\n$details",
+                                details = provenance + details,
                                 sessionId = sessionId,
                                 createdAtEpochMs = item.optLong("timestampEpochMs", importedAt).takeIf { it > 0 } ?: importedAt,
                                 eventId = eventId,
