@@ -366,16 +366,22 @@ class SupabaseAccountRepository(context: Context) {
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            val json = if (responseText.isBlank()) JSONObject() else JSONObject(responseText)
+            val json = runCatching {
+                if (responseText.isBlank()) JSONObject() else JSONObject(responseText)
+            }.getOrElse { JSONObject() }
             if (status !in 200..299) {
-                val message = json.optString("msg").ifBlank {
+                val serverMessage = json.optString("msg").ifBlank {
                     json.optString("message").ifBlank {
                         json.optString("error_description").ifBlank {
-                            json.optString("error").ifBlank { "Request failed (HTTP $status)." }
+                            json.optString("error").ifBlank { responseText.trim().take(220) }
                         }
                     }
                 }
-                error(message)
+                val safeMessage = serverMessage.ifBlank { "No error details were returned by the server." }
+                error("Supabase request failed (HTTP $status) at $path: $safeMessage")
+            }
+            if (responseText.isNotBlank() && json.length() == 0) {
+                error("Supabase returned an unreadable response (HTTP $status) at $path.")
             }
             return json
         } finally {
