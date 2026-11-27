@@ -259,8 +259,8 @@ private suspend fun importArchive(context: Context, database: DiagnosticsDatabas
                 require(
                     !entry.isDirectory &&
                     !name.startsWith("/") &&
-                    !name.startsWith("\\\\") &&
-                    !name.contains('\\\\') &&
+                    !name.startsWith("\\") &&
+                    !name.contains('\\') &&
                     !Regex("^[A-Za-z]:").containsMatchIn(name) &&
                     name.split('/').none { it == ".." || it.isBlank() }
                 ) { "Unsafe archive entry" }
