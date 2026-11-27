@@ -78,6 +78,9 @@ jobs:
           set -euo pipefail
           if [ "$GITHUB_REF_NAME" = "feature/automatic-device-release-beta-management" ]; then
             BUILD_NUMBER="$GITHUB_RUN_NUMBER"
+          elif [ "$GITHUB_REF_NAME" = "repair/accurate-apk-connection-status" ]; then
+            # Build 27 was emitted by the initial repair-branch validation run; resume after the installed Build 132 baseline.
+            BUILD_NUMBER=$((GITHUB_RUN_NUMBER - 1))
           else
             EXISTING_TAG="$(git tag --points-at HEAD | grep -E '^diagnostics-build-[0-9]+$' | sort -V | tail -n 1 || true)"
             if [ -n "$EXISTING_TAG" ]; then
