@@ -84,11 +84,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] || [ "$GITHUB_REF_NAME" = "feature/automatic-device-release-beta-management" ]; then
-            # Every PR/Test artifact gets a unique version; only successful non-PR builds create tags.
-            BUILD_NUMBER="$GITHUB_RUN_NUMBER"
-          else
-            EXISTING_TAG="$(git tag --points-at HEAD | grep -E '^diagnostics-build-[0-9]+
+          BUILD_NUMBER="$GITHUB_RUN_NUMBER"
           VERSION_NAME="$(printf '1.0.%02d' "$BUILD_NUMBER")"
           STEM="$(printf 'Nexus3D _Diagnostics_Build%s_v%s' "$BUILD_NUMBER" "$VERSION_NAME")"
           echo "number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
@@ -177,7 +173,7 @@ jobs:
           retention-days: 30
 
       - name: Commit successful build tag
-        if: success() && github.event_name != 'pull_request' && github.ref_name != 'feature/automatic-device-release-beta-management'
+        if: success() && github.event_name != 'pull_request' && github.ref_name == 'feature/automatic-device-release-beta-management'
         shell: bash
         env:
           BUILD_TAG: ${{ steps.build_meta.outputs.tag }}
