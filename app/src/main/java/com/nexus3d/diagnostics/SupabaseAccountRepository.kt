@@ -52,11 +52,26 @@ class SupabaseAccountRepository(context: Context) {
             body = JSONObject().put("email", email.trim()).put("password", password)
         )
         saveSessionIfPresent(result)
-        if (result.optString("access_token").isBlank()) {
-            "Account created. Check your email to confirm it, then sign in here."
+        val identities = result.optJSONObject("user")?.optJSONArray("identities")
+        val repeatedSignup = identities != null && identities.length() == 0
+        if (repeatedSignup) {
+            "An account may already exist for this email. Sign in, or use Resend Confirmation if the email is not verified. No new account was created."
+        } else if (result.optString("access_token").isBlank()) {
+            "Registration request accepted. Check your email to confirm it, then sign in here."
         } else {
             "Account created and signed in."
         }
+    }
+
+    suspend fun resendSignupConfirmation(email: String): String = withContext(Dispatchers.IO) {
+        val normalizedEmail = email.trim()
+        require(normalizedEmail.contains("@")) { "Enter a valid email address first." }
+        request(
+            path = "/auth/v1/resend?redirect_to=" + URLEncoder.encode(AUTH_REDIRECT_URI, "UTF-8"),
+            method = "POST",
+            body = JSONObject().put("type", "signup").put("email", normalizedEmail)
+        )
+        "If this account is eligible for confirmation, a new confirmation email has been requested. Check your inbox and spam folder."
     }
 
     suspend fun signIn(email: String, password: String) = withContext(Dispatchers.IO) {
