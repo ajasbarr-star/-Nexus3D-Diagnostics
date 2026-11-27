@@ -97,6 +97,21 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
         run: gradle :app:testDebugUnitTest -PdiagnosticsBuildNumber="$BUILD_NUMBER"
 
+      - name: Enable Android Emulator hardware acceleration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod a+rw /dev/kvm
+          fi
+
+          if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+            echo "KVM is available to the runner; Android Emulator will use hardware acceleration."
+          else
+            echo "::warning::KVM is unavailable. Enabling the Android Emulator 37+ software-emulation opt-in."
+            echo "ANDROID_I_WANT_MY_TCG=yes" >> "$GITHUB_ENV"
+          fi
+
       - name: Run Android 13 cold-start and Owner Admin panel smoke test
         uses: reactivecircus/android-emulator-runner@v2
         env:
@@ -104,6 +119,7 @@ jobs:
         with:
           api-level: 33
           arch: x86_64
+          emulator-boot-timeout: 900
           script: gradle :app:connectedDebugAndroidTest -PdiagnosticsBuildNumber="$BUILD_NUMBER"
 
       - name: Build signed Test APK
