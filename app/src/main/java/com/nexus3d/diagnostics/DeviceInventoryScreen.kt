@@ -70,11 +70,11 @@ fun DeviceInventoryScreen(
         modifier = Modifier.fillMaxWidth().then(if (inline) Modifier else Modifier.fillMaxSize()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (!inline) Row(
+        Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            OutlinedButton(onClick = onBack) { Text("← Back") }
+            if (!inline) OutlinedButton(onClick = onBack) { Text("← Back") }
             Button(onClick = { refresh() }, enabled = !loading) { Text("Refresh") }
         }
         Text("Device Inventory", style = MaterialTheme.typography.headlineSmall)
