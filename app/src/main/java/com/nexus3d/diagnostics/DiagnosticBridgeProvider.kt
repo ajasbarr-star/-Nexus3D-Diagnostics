@@ -29,6 +29,7 @@ class DiagnosticBridgeProvider : ContentProvider() {
 
     override fun onCreate(): Boolean = true
 
+    @Synchronized
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
         if (method != "ingestBatch") throw IllegalArgumentException("Unsupported bridge method")
         val appContext = requireNotNull(context)
@@ -60,7 +61,7 @@ class DiagnosticBridgeProvider : ContentProvider() {
             val sessionId = item.optString("sessionId").takeIf { it.isNotBlank() }
             val timestamp = item.optLong("timestampEpochMs", System.currentTimeMillis())
             val eventId = item.optString("eventId").takeIf { it.isNotBlank() }
-                ?: java.util.UUID.randomUUID().toString()
+                ?: throw IllegalArgumentException("Missing event ID")
             val deviceId = item.optString("deviceId").takeIf { it.isNotBlank() }
                 ?: "local-bridge-unknown"
             val sequence = item.optLong("sequence", timestamp)
@@ -92,14 +93,31 @@ class DiagnosticBridgeProvider : ContentProvider() {
             )
         }
 
-        val ids = runBlocking {
+        // Idempotent delivery: retries of an already-stored event are acknowledged,
+        // but never inserted a second time. The synchronized provider call serializes
+        // this check-and-insert sequence within the Diagnostics process.
+        val acknowledgedEventIds = ArrayList<String>(accepted.size)
+        var inserted = 0
+        var duplicates = 0
+        runBlocking {
             withContext(Dispatchers.IO) {
-                database.eventDao().insertAll(accepted)
+                accepted.forEach { event ->
+                    if (database.eventDao().countByEventId(event.eventId) > 0) {
+                        duplicates += 1
+                    } else {
+                        database.eventDao().insert(event)
+                        inserted += 1
+                    }
+                    acknowledgedEventIds.add(event.eventId)
+                }
             }
         }
         return Bundle().apply {
             putBoolean("ok", true)
-            putInt("accepted", ids.size)
+            putInt("accepted", accepted.size)
+            putInt("inserted", inserted)
+            putInt("duplicates", duplicates)
+            putStringArrayList("acknowledgedEventIds", acknowledgedEventIds)
         }
     }
 
