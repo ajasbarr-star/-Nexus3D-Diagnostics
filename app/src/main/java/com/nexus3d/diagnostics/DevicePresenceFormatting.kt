@@ -83,3 +83,9 @@ internal fun formatVersionEvent(event: InstallationVersion?, zone: ZoneId = Zone
     } ?: "date not reported"
     return "${event.appVersion} - $date"
 }
+
+internal fun formatHardwareBytes(value: Long?): String {
+    if (value == null || value <= 0L) return "Not reported"
+    val gib = value.toDouble() / (1024.0 * 1024.0 * 1024.0)
+    return String.format(Locale.US, "%.1f GB", gib)
+}
