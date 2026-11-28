@@ -63,7 +63,7 @@ class DiagnosticsFeatureInstrumentedTest {
         composeRule.setContent {
             MaterialTheme {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    OwnerAdminStatusbarPanel(owner, repository)
+                    OwnerAdminStatusbarPanel(owner, repository, autoLockTimeoutMillis = 0L)
                 }
             }
         }
@@ -126,7 +126,7 @@ class DiagnosticsFeatureInstrumentedTest {
         composeRule.setContent {
             MaterialTheme {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    OwnerAdminStatusbarPanel(owner, SupabaseAccountRepository(context))
+                    OwnerAdminStatusbarPanel(owner, SupabaseAccountRepository(context), autoLockTimeoutMillis = 0L)
                 }
             }
         }
