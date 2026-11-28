@@ -337,7 +337,7 @@ private fun AppearanceSlider(
     onChange: (Float) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text("$label: \${"%.2f".format(value)}", style = MaterialTheme.typography.bodySmall)
+        Text("$label: ${"%.2f".format(value)}", style = MaterialTheme.typography.bodySmall)
         Slider(value = value, onValueChange = onChange, valueRange = range)
     }
 }
@@ -351,7 +351,7 @@ private fun AppearanceColorEditor(
     val color = Color(colorValue)
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(label, style = MaterialTheme.typography.bodySmall)
-        Text("R \${(color.red * 255).toInt()}  G \${(color.green * 255).toInt()}  B \${(color.blue * 255).toInt()}", style = MaterialTheme.typography.labelSmall)
+        Text("R ${(color.red * 255).toInt()}  G ${(color.green * 255).toInt()}  B ${(color.blue * 255).toInt()}", style = MaterialTheme.typography.labelSmall)
         AppearanceSlider("Red", color.red * 255f, 0f..255f) { onChange(Color(it / 255f, color.green, color.blue, 1f).toArgb()) }
         AppearanceSlider("Green", color.green * 255f, 0f..255f) { onChange(Color(color.red, it / 255f, color.blue, 1f).toArgb()) }
         AppearanceSlider("Blue", color.blue * 255f, 0f..255f) { onChange(Color(color.red, color.green, it / 255f, 1f).toArgb()) }
