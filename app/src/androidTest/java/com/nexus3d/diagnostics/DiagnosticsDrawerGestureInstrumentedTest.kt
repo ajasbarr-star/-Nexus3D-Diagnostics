@@ -12,6 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.room.Room
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class DiagnosticsDrawerGestureInstrumentedTest {
@@ -64,10 +65,12 @@ class DiagnosticsDrawerGestureInstrumentedTest {
     @Test
     fun swipeInFromRightEdgeOpensRightDrawer() {
         setDashboardContent()
+        composeRule.waitForIdle()
+        val rootWidth = composeRule.activity.window.decorView.width.toFloat()
         composeRule.onRoot().performTouchInput {
             val y = center.y
-            down(Offset(size.width - 1f, y))
-            moveTo(Offset(size.width - 160f, y), 350)
+            down(Offset(rootWidth - 1f, y))
+            moveTo(Offset(rootWidth - 160f, y), 350)
             up()
         }
         composeRule.waitForIdle()
