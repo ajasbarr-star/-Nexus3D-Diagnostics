@@ -38,6 +38,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -92,6 +94,10 @@ fun OwnerAdminStatusbarPanel(
     var error by remember { mutableStateOf("") }
     var profilePath by remember { mutableStateOf(store.imagePath("profile")) }
     var coverPath by remember { mutableStateOf(store.imagePath("cover")) }
+    var profileScale by remember { mutableStateOf(store.imageScale("profile")) }
+    var coverScale by remember { mutableStateOf(store.imageScale("cover")) }
+    var coverOffsetX by remember { mutableStateOf(store.imageOffsetX("cover")) }
+    var coverOffsetY by remember { mutableStateOf(store.imageOffsetY("cover")) }
 
     val profilePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) runCatching { store.saveImage(uri, "profile") }
@@ -195,7 +201,7 @@ fun OwnerAdminStatusbarPanel(
             }
 
             if (unlocked && expanded) {
-                OwnerAdminMediaPreview(profilePath, coverPath)
+                OwnerAdminMediaPreview(profilePath, coverPath, profileScale, coverScale, coverOffsetX, coverOffsetY)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("OWNER ADMIN", style = MaterialTheme.typography.titleSmall)
                     Text("ACTIVE", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
@@ -218,9 +224,15 @@ fun OwnerAdminStatusbarPanel(
                         Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(scaledIconSize))
                         Text(if (profilePath == null) " Add Picture" else " Change Picture")
                     }
-                    if (profilePath != null) IconButton(onClick = { store.removeImage("profile"); profilePath = null }) {
+                    if (profilePath != null) IconButton(onClick = { store.removeImage("profile"); profilePath = null; profileScale = 1f }) {
                         Icon(Icons.Default.Delete, contentDescription = "Remove profile picture", modifier = Modifier.size(scaledIconSize))
                     }
+                }
+                if (profilePath != null) {
+                    Text("Profile picture crop / zoom", style = MaterialTheme.typography.bodySmall)
+                    Slider(value = profileScale, onValueChange = { profileScale = it; store.saveImageCrop("profile", it) }, valueRange = 1f..2.5f)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 }
 
                 Text("COVER PHOTO", style = MaterialTheme.typography.labelLarge)
@@ -229,9 +241,18 @@ fun OwnerAdminStatusbarPanel(
                         Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(scaledIconSize))
                         Text(if (coverPath == null) " Add Cover" else " Change Cover")
                     }
-                    if (coverPath != null) IconButton(onClick = { store.removeImage("cover"); coverPath = null }) {
+                    if (coverPath != null) IconButton(onClick = { store.removeImage("cover"); coverPath = null; coverScale = 1f; coverOffsetX = 0f; coverOffsetY = 0f }) {
                         Icon(Icons.Default.Delete, contentDescription = "Remove cover photo", modifier = Modifier.size(scaledIconSize))
                     }
+                }
+                if (coverPath != null) {
+                    Text("Cover photo crop / zoom", style = MaterialTheme.typography.bodySmall)
+                    Slider(value = coverScale, onValueChange = { coverScale = it; store.saveImageCrop("cover", it, coverOffsetX, coverOffsetY) }, valueRange = 1f..2.5f)
+                    Text("Cover horizontal position", style = MaterialTheme.typography.bodySmall)
+                    Slider(value = coverOffsetX, onValueChange = { coverOffsetX = it; store.saveImageCrop("cover", coverScale, it, coverOffsetY) }, valueRange = -1f..1f)
+                    Text("Cover vertical position", style = MaterialTheme.typography.bodySmall)
+                    Slider(value = coverOffsetY, onValueChange = { coverOffsetY = it; store.saveImageCrop("cover", coverScale, coverOffsetX, it) }, valueRange = -1f..1f)
+                }
                 }
 
                 Row(
@@ -403,18 +424,32 @@ fun OwnerAdminStatusbarPanel(
 }
 
 @Composable
-private fun OwnerAdminMediaPreview(profilePath: String?, coverPath: String?) {
+private fun OwnerAdminMediaPreview(
+    profilePath: String?,
+    coverPath: String?,
+    profileScale: Float,
+    coverScale: Float,
+    coverOffsetX: Float,
+    coverOffsetY: Float
+) {
     val coverBitmap = remember(coverPath) { coverPath?.let { path -> if (File(path).isFile) BitmapFactory.decodeFile(path) else null } }
     val profileBitmap = remember(profilePath) { profilePath?.let { path -> if (File(path).isFile) BitmapFactory.decodeFile(path) else null } }
 
     Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
         if (coverBitmap != null) {
-            Image(
-                bitmap = coverBitmap.asImageBitmap(),
-                contentDescription = "Owner Admin cover photo",
-                modifier = Modifier.fillMaxWidth().height(112.dp),
-                contentScale = ContentScale.Crop
-            )
+            Box(Modifier.fillMaxWidth().height(112.dp).clip(MaterialTheme.shapes.medium)) {
+                Image(
+                    bitmap = coverBitmap.asImageBitmap(),
+                    contentDescription = "Owner Admin cover photo",
+                    modifier = Modifier.fillMaxSize().graphicsLayer(
+                        scaleX = coverScale.coerceIn(1f, 2.5f),
+                        scaleY = coverScale.coerceIn(1f, 2.5f),
+                        translationX = coverOffsetX.coerceIn(-1f, 1f) * 100f,
+                        translationY = coverOffsetY.coerceIn(-1f, 1f) * 60f
+                    ),
+                    contentScale = ContentScale.Crop
+                )
+            }
         } else {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Box(Modifier.fillMaxWidth().height(96.dp), contentAlignment = Alignment.Center) {
@@ -428,12 +463,17 @@ private fun OwnerAdminMediaPreview(profilePath: String?, coverPath: String?) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (profileBitmap != null) {
-                Image(
-                    bitmap = profileBitmap.asImageBitmap(),
-                    contentDescription = "Owner Admin profile picture",
-                    modifier = Modifier.size(72.dp).clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
+                Box(Modifier.size(72.dp).clip(CircleShape)) {
+                    Image(
+                        bitmap = profileBitmap.asImageBitmap(),
+                        contentDescription = "Owner Admin profile picture",
+                        modifier = Modifier.fillMaxSize().graphicsLayer(
+                            scaleX = profileScale.coerceIn(1f, 2.5f),
+                            scaleY = profileScale.coerceIn(1f, 2.5f)
+                        ),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             } else {
                 Box(
                     modifier = Modifier.size(72.dp).clip(CircleShape),
