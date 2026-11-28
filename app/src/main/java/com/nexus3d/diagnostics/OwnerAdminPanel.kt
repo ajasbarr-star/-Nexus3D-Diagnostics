@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,6 +72,8 @@ fun OwnerAdminStatusbarPanel(
     if (!owner.registered || owner.status != "active" || owner.adminId.isNullOrBlank()) return
 
     val context = LocalContext.current
+    val appearance = LocalDiagnosticsAppearance.current
+    val scaledIconSize = (24f * appearance.iconScale.coerceIn(0.7f, 1.5f)).dp
     val clipboard = LocalClipboardManager.current
     val store = remember { OwnerAdminLocalStore(context) }
     val scope = rememberCoroutineScope()
@@ -145,7 +148,7 @@ fun OwnerAdminStatusbarPanel(
             .onFailure { error = it.message ?: "Unable to save the security credential." }
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth().border(appearance.borderWidth.coerceIn(0f, 4f).dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -171,6 +174,7 @@ fun OwnerAdminStatusbarPanel(
                     }
                 }) {
                     Icon(
+                        modifier = Modifier.size(scaledIconSize),
                         imageVector = when {
                             unlocked && expanded -> Icons.Default.ExpandLess
                             unlocked -> Icons.Default.ExpandMore
@@ -203,29 +207,29 @@ fun OwnerAdminStatusbarPanel(
                         clipboard.setText(AnnotatedString(status.adminId))
                         message = "Permanent Admin Unique ID copied."
                     }) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy Permanent Admin Unique ID")
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy Permanent Admin Unique ID", modifier = Modifier.size(scaledIconSize))
                     }
                 }
 
                 Text("PROFILE PICTURE", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton(onClick = { profilePicker.launch("image/*") }) {
-                        Icon(Icons.Default.AddAPhoto, contentDescription = null)
+                        Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(scaledIconSize))
                         Text(if (profilePath == null) " Add Picture" else " Change Picture")
                     }
                     if (profilePath != null) IconButton(onClick = { store.removeImage("profile"); profilePath = null }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Remove profile picture")
+                        Icon(Icons.Default.Delete, contentDescription = "Remove profile picture", modifier = Modifier.size(scaledIconSize))
                     }
                 }
 
                 Text("COVER PHOTO", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton(onClick = { coverPicker.launch("image/*") }) {
-                        Icon(Icons.Default.AddAPhoto, contentDescription = null)
+                        Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(scaledIconSize))
                         Text(if (coverPath == null) " Add Cover" else " Change Cover")
                     }
                     if (coverPath != null) IconButton(onClick = { store.removeImage("cover"); coverPath = null }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Remove cover photo")
+                        Icon(Icons.Default.Delete, contentDescription = "Remove cover photo", modifier = Modifier.size(scaledIconSize))
                     }
                 }
 
@@ -239,7 +243,7 @@ fun OwnerAdminStatusbarPanel(
                         credentialKind = store.credentialKind()
                         dialog = OwnerAdminDialog.CHANGE
                     }) {
-                        Icon(Icons.Default.Edit, contentDescription = null)
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(scaledIconSize))
                         Text(" SET PIN/PASS")
                     }
                     OutlinedButton(onClick = {
@@ -247,11 +251,11 @@ fun OwnerAdminStatusbarPanel(
                         credentialKind = store.credentialKind()
                         dialog = OwnerAdminDialog.CHANGE
                     }) {
-                        Icon(Icons.Default.LockReset, contentDescription = null)
+                        Icon(Icons.Default.LockReset, contentDescription = null, modifier = Modifier.size(scaledIconSize))
                         Text(" RESET PIN/PASS")
                     }
                     IconButton(onClick = { unlocked = false; expanded = false }) {
-                        Icon(Icons.Default.Lock, contentDescription = "Lock Owner Admin panel")
+                        Icon(Icons.Default.Lock, contentDescription = "Lock Owner Admin panel", modifier = Modifier.size(scaledIconSize))
                     }
                 }
             }
