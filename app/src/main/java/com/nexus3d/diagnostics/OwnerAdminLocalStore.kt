@@ -128,9 +128,27 @@ class OwnerAdminLocalStore(private val context: Context) {
         return preferences.getString(key, null)?.takeIf { File(it).isFile }
     }
 
+    fun imageScale(slot: String): Float = preferences.getFloat("${slot}_scale", 1f)
+    fun imageOffsetX(slot: String): Float = preferences.getFloat("${slot}_offset_x", 0f)
+    fun imageOffsetY(slot: String): Float = preferences.getFloat("${slot}_offset_y", 0f)
+
+    fun saveImageCrop(slot: String, scale: Float, offsetX: Float = 0f, offsetY: Float = 0f) {
+        require(slot == "profile" || slot == "cover") { "Unknown image slot." }
+        preferences.edit()
+            .putFloat("${slot}_scale", scale.coerceIn(1f, 2.5f))
+            .putFloat("${slot}_offset_x", offsetX.coerceIn(-1f, 1f))
+            .putFloat("${slot}_offset_y", offsetY.coerceIn(-1f, 1f))
+            .apply()
+    }
+
     fun removeImage(slot: String) {
         val key = if (slot == "profile") PROFILE else COVER
         preferences.getString(key, null)?.let { File(it).delete() }
-        preferences.edit().remove(key).apply()
+        preferences.edit()
+            .remove(key)
+            .remove("${slot}_scale")
+            .remove("${slot}_offset_x")
+            .remove("${slot}_offset_y")
+            .apply()
     }
 }
