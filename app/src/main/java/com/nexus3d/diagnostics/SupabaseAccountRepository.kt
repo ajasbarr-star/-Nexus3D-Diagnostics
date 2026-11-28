@@ -27,6 +27,9 @@ class SupabaseAccountRepository(context: Context) {
         private const val ACCESS = "access_token"
         private const val REFRESH = "refresh_token"
         private const val EXPIRES = "expires_at"
+        private const val REMEMBER_LOGIN = "remember_login"
+        private const val PASSWORD_RECOVERY_PENDING = "password_recovery_pending"
+        private const val OWNER_ADMIN_EMAIL = "ajasbarr@gmail.com"
     }
 
     private val preferences by lazy {
@@ -42,10 +45,55 @@ class SupabaseAccountRepository(context: Context) {
         )
     }
 
-    fun hasSession(): Boolean = !preferences.getString(ACCESS, null).isNullOrBlank() &&
-        !preferences.getString(REFRESH, null).isNullOrBlank()
+    @Volatile private var transientAccessToken: String? = null
+    @Volatile private var transientRefreshToken: String? = null
+    @Volatile private var transientExpiresAt: Long = 0L
 
-    suspend fun signUp(email: String, password: String): String = withContext(Dispatchers.IO) {
+    private fun storedSessionExists(): Boolean =
+        !preferences.getString(ACCESS, null).isNullOrBlank() &&
+            !preferences.getString(REFRESH, null).isNullOrBlank()
+
+    fun isRememberLoginEnabled(): Boolean =
+        preferences.getBoolean(REMEMBER_LOGIN, storedSessionExists())
+
+    fun setRememberLogin(enabled: Boolean) {
+        val access = currentAccessToken()
+        val refresh = currentRefreshToken()
+        val expires = currentExpiresAt()
+        preferences.edit().putBoolean(REMEMBER_LOGIN, enabled).apply()
+        if (enabled) {
+            if (!access.isNullOrBlank() && !refresh.isNullOrBlank()) {
+                preferences.edit()
+                    .putString(ACCESS, access)
+                    .putString(REFRESH, refresh)
+                    .putLong(EXPIRES, expires)
+                    .apply()
+            }
+            transientAccessToken = null
+            transientRefreshToken = null
+            transientExpiresAt = 0L
+        } else {
+            transientAccessToken = access
+            transientRefreshToken = refresh
+            transientExpiresAt = expires
+            preferences.edit().remove(ACCESS).remove(REFRESH).remove(EXPIRES).apply()
+        }
+    }
+
+    fun hasSession(): Boolean =
+        !currentAccessToken().isNullOrBlank() && !currentRefreshToken().isNullOrBlank()
+
+    private fun currentAccessToken(): String? =
+        transientAccessToken ?: preferences.getString(ACCESS, null)
+
+    private fun currentRefreshToken(): String? =
+        transientRefreshToken ?: preferences.getString(REFRESH, null)
+
+    private fun currentExpiresAt(): Long =
+        if (transientAccessToken != null) transientExpiresAt else preferences.getLong(EXPIRES, 0L)
+
+    suspend fun signUp(email: String, password: String, rememberLogin: Boolean = true): String = withContext(Dispatchers.IO) {
+        setRememberLogin(rememberLogin)
         val result = request(
             path = "/auth/v1/signup?redirect_to=" + URLEncoder.encode(AUTH_REDIRECT_URI, "UTF-8"),
             method = "POST",
@@ -74,7 +122,8 @@ class SupabaseAccountRepository(context: Context) {
         "If this account is eligible for confirmation, a new confirmation email has been requested. Check your inbox and spam folder."
     }
 
-    suspend fun signIn(email: String, password: String) = withContext(Dispatchers.IO) {
+    suspend fun signIn(email: String, password: String, rememberLogin: Boolean = true) = withContext(Dispatchers.IO) {
+        setRememberLogin(rememberLogin)
         val result = request(
             path = "/auth/v1/token?grant_type=password",
             method = "POST",
@@ -85,11 +134,11 @@ class SupabaseAccountRepository(context: Context) {
     }
 
     suspend fun createEnrollmentCode(): EnrollmentCode = withContext(Dispatchers.IO) {
-        var accessToken = preferences.getString(ACCESS, null)
+        var accessToken = currentAccessToken()
             ?: error("Please sign in first.")
-        val expiresAtMillis = preferences.getLong(EXPIRES, 0L)
+        val expiresAtMillis = currentExpiresAt()
         if (System.currentTimeMillis() >= expiresAtMillis - 60_000L) {
-            val refreshToken = preferences.getString(REFRESH, null)
+            val refreshToken = currentRefreshToken()
                 ?: error("Your session expired. Please sign in again.")
             val refreshed = request(
                 path = "/auth/v1/token?grant_type=refresh_token",
@@ -97,7 +146,7 @@ class SupabaseAccountRepository(context: Context) {
                 body = JSONObject().put("refresh_token", refreshToken)
             )
             saveSessionIfPresent(refreshed)
-            accessToken = preferences.getString(ACCESS, null)
+            accessToken = currentAccessToken()
                 ?: error("Session refresh failed. Please sign in again.")
         }
 
@@ -136,6 +185,65 @@ class SupabaseAccountRepository(context: Context) {
         ownerAdminStatusFrom(result)
     }
 
+    suspend fun requestPasswordReset(email: String): String = withContext(Dispatchers.IO) {
+        val normalized = email.trim().lowercase()
+        require(normalized == OWNER_ADMIN_EMAIL) { "Password recovery is restricted to the verified Owner Admin email." }
+        request(
+            path = "/auth/v1/recover?redirect_to=" + URLEncoder.encode(AUTH_REDIRECT_URI, "UTF-8"),
+            method = "POST",
+            body = JSONObject().put("email", normalized)
+        )
+        "If the Owner Admin account is eligible, a password recovery email has been sent to $OWNER_ADMIN_EMAIL."
+    }
+
+    suspend fun updatePassword(newPassword: String) = withContext(Dispatchers.IO) {
+        require(newPassword.length >= 10) { "Use a password with at least 10 characters." }
+        request(
+            path = "/auth/v1/user",
+            method = "PUT",
+            body = JSONObject().put("password", newPassword),
+            bearer = freshAccessToken()
+        )
+        preferences.edit().remove(PASSWORD_RECOVERY_PENDING).apply()
+    }
+
+    fun isPasswordRecoveryPending(): Boolean =
+        preferences.getBoolean(PASSWORD_RECOVERY_PENDING, false)
+
+    fun clearPasswordRecoveryPending() {
+        preferences.edit().remove(PASSWORD_RECOVERY_PENDING).apply()
+    }
+
+    suspend fun requestOwnerAdminPinRecoveryCode(): String = withContext(Dispatchers.IO) {
+        request(
+            path = "/auth/v1/otp",
+            method = "POST",
+            body = JSONObject()
+                .put("email", OWNER_ADMIN_EMAIL)
+                .put("create_user", false)
+        )
+        "A one-time email verification code was requested for $OWNER_ADMIN_EMAIL."
+    }
+
+    suspend fun verifyOwnerAdminPinRecoveryCode(code: String): OwnerAdminStatus = withContext(Dispatchers.IO) {
+        val token = code.trim()
+        require(token.length in 6..8 && token.all(Char::isDigit)) { "Enter the 6–8 digit email verification code." }
+        val result = request(
+            path = "/auth/v1/verify",
+            method = "POST",
+            body = JSONObject()
+                .put("email", OWNER_ADMIN_EMAIL)
+                .put("token", token)
+                .put("type", "email")
+        )
+        saveSessionIfPresent(result)
+        val owner = fetchOwnerAdminStatus()
+        if (!owner.registered || owner.status != "active" || !owner.eligible || !owner.emailVerified) {
+            error("Email verification did not confirm the active Owner Admin account.")
+        }
+        owner
+    }
+
     suspend fun registerOwnerAdmin(setupCode: String): OwnerAdminStatus = withContext(Dispatchers.IO) {
         val normalizedCode = setupCode.trim()
         require(normalizedCode.length in 20..256) { "Enter the valid one-time Admin Setup Code." }
@@ -159,11 +267,11 @@ class SupabaseAccountRepository(context: Context) {
     )
 
     private fun freshAccessToken(): String {
-        var accessToken = preferences.getString(ACCESS, null)
+        var accessToken = currentAccessToken()
             ?: error("Please sign in first.")
-        val expiresAtMillis = preferences.getLong(EXPIRES, 0L)
+        val expiresAtMillis = currentExpiresAt()
         if (System.currentTimeMillis() >= expiresAtMillis - 60_000L) {
-            val refreshToken = preferences.getString(REFRESH, null)
+            val refreshToken = currentRefreshToken()
                 ?: error("Your session expired. Please sign in again.")
             val refreshed = request(
                 path = "/auth/v1/token?grant_type=refresh_token",
@@ -171,7 +279,7 @@ class SupabaseAccountRepository(context: Context) {
                 body = JSONObject().put("refresh_token", refreshToken)
             )
             saveSessionIfPresent(refreshed)
-            accessToken = preferences.getString(ACCESS, null)
+            accessToken = currentAccessToken()
                 ?: error("Session refresh failed. Please sign in again.")
         }
         return accessToken
@@ -179,11 +287,11 @@ class SupabaseAccountRepository(context: Context) {
 
 
     suspend fun fetchRegisteredDevices(): List<RegisteredDevice> = withContext(Dispatchers.IO) {
-        var accessToken = preferences.getString(ACCESS, null)
+        var accessToken = currentAccessToken()
             ?: error("Please sign in to view registered devices.")
-        val expiresAtMillis = preferences.getLong(EXPIRES, 0L)
+        val expiresAtMillis = currentExpiresAt()
         if (System.currentTimeMillis() >= expiresAtMillis - 60_000L) {
-            val refreshToken = preferences.getString(REFRESH, null)
+            val refreshToken = currentRefreshToken()
                 ?: error("Your session expired. Please sign in again.")
             val refreshed = request(
                 path = "/auth/v1/token?grant_type=refresh_token",
@@ -191,7 +299,7 @@ class SupabaseAccountRepository(context: Context) {
                 body = JSONObject().put("refresh_token", refreshToken)
             )
             saveSessionIfPresent(refreshed)
-            accessToken = preferences.getString(ACCESS, null)
+            accessToken = currentAccessToken()
                 ?: error("Session refresh failed. Please sign in again.")
         }
 
@@ -294,6 +402,9 @@ class SupabaseAccountRepository(context: Context) {
 
     fun signOut() {
         preferences.edit().clear().apply()
+        transientAccessToken = null
+        transientRefreshToken = null
+        transientExpiresAt = 0L
     }
 
 
@@ -322,6 +433,10 @@ class SupabaseAccountRepository(context: Context) {
             return "The confirmation callback did not contain a valid session. Sign in again or request a new confirmation email."
         }
 
+        val callbackType = parameter("type")
+        if (callbackType == "recovery") {
+            preferences.edit().putBoolean(PASSWORD_RECOVERY_PENDING, true).apply()
+        }
         val expiresIn = parameter("expires_in")?.toLongOrNull()?.coerceAtLeast(60L) ?: 3600L
         saveSessionIfPresent(
             JSONObject()
@@ -329,7 +444,11 @@ class SupabaseAccountRepository(context: Context) {
                 .put("refresh_token", refreshToken)
                 .put("expires_in", expiresIn)
         )
-        return "Email confirmed. Your Diagnostics session is ready."
+        return if (callbackType == "recovery") {
+            "Password recovery verified. Return to Diagnostics to set a new password."
+        } else {
+            "Email confirmed. Your Diagnostics session is ready."
+        }
     }
 
     private fun saveSessionIfPresent(json: JSONObject) {
@@ -337,11 +456,22 @@ class SupabaseAccountRepository(context: Context) {
         val refresh = json.optString("refresh_token")
         if (access.isBlank() || refresh.isBlank()) return
         val expiresIn = json.optLong("expires_in", 3600L).coerceAtLeast(60L)
-        preferences.edit()
-            .putString(ACCESS, access)
-            .putString(REFRESH, refresh)
-            .putLong(EXPIRES, System.currentTimeMillis() + expiresIn * 1000L)
-            .apply()
+        val expiresAt = System.currentTimeMillis() + expiresIn * 1000L
+        if (isRememberLoginEnabled()) {
+            preferences.edit()
+                .putString(ACCESS, access)
+                .putString(REFRESH, refresh)
+                .putLong(EXPIRES, expiresAt)
+                .apply()
+            transientAccessToken = null
+            transientRefreshToken = null
+            transientExpiresAt = 0L
+        } else {
+            transientAccessToken = access
+            transientRefreshToken = refresh
+            transientExpiresAt = expiresAt
+            preferences.edit().remove(ACCESS).remove(REFRESH).remove(EXPIRES).apply()
+        }
     }
 
     private fun request(
