@@ -2,6 +2,10 @@ package com.nexus3d.diagnostics
 
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertCountEquals
@@ -57,7 +61,9 @@ class DiagnosticsFeatureInstrumentedTest {
 
         composeRule.setContent {
             MaterialTheme {
-                OwnerAdminStatusbarPanel(owner, repository)
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    OwnerAdminStatusbarPanel(owner, repository)
+                }
             }
         }
 
@@ -118,7 +124,9 @@ class DiagnosticsFeatureInstrumentedTest {
         )
         composeRule.setContent {
             MaterialTheme {
-                OwnerAdminStatusbarPanel(owner, SupabaseAccountRepository(context))
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    OwnerAdminStatusbarPanel(owner, SupabaseAccountRepository(context))
+                }
             }
         }
         composeRule.waitForIdle()
