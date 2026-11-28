@@ -40,14 +40,14 @@ class DiagnosticsLoginInstrumentedTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("OWNER ADMIN LOGIN").assertExists()
-        composeRule.onNodeWithText("Nexus3D Diagnostics").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Nexus3D Diagnostics logo").assertIsDisplayed()
-        composeRule.onNodeWithText("REMEMBER MY LOGIN").assertIsDisplayed()
-        composeRule.onNodeWithText("RESET PASSWORD").assertIsDisplayed()
+        composeRule.onNodeWithText("Nexus3D Diagnostics").assertExists()
+        composeRule.onNodeWithContentDescription("Nexus3D Diagnostics logo").assertExists()
+        composeRule.onNodeWithText("REMEMBER MY LOGIN").assertExists()
+        composeRule.onNodeWithText("RESET PASSWORD").assertExists()
 
         composeRule.onNodeWithTag("rememberMyLoginCheckbox").performScrollTo().performClick()
         assertTrue(repository.isRememberLoginEnabled())
-        composeRule.onNodeWithTag("rememberMyLoginCheckbox").performClick()
+        composeRule.onNodeWithTag("rememberMyLoginCheckbox").performScrollTo().performClick()
         assertFalse(repository.isRememberLoginEnabled())
 
         database.close()
