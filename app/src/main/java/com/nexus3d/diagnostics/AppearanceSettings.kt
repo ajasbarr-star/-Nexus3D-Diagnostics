@@ -268,11 +268,11 @@ fun AppearanceSettingsPanel(
     ) {
         Text("BACKGROUND STYLE", style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("Preset", "Solid", "Gradient", "Image").forEach { style ->
+            listOf("Preset" to "Preset", "Add Custom" to "Solid", "Gradient" to "Gradient", "Image" to "Image").forEach { (label, style) ->
                 FilterChip(
                     selected = draft.backgroundStyle == style,
                     onClick = { draft = draft.copy(backgroundStyle = style) },
-                    label = { Text(style) }
+                    label = { Text(label) }
                 )
             }
         }
@@ -296,13 +296,16 @@ fun AppearanceSettingsPanel(
         if (draft.backgroundStyle == "Image") {
             OutlinedButton(onClick = { imagePicker.launch("image/*") }) { Text("ADD / CHANGE CUSTOM BACKGROUND") }
             if (draft.backgroundImagePath != null) {
-                OutlinedButton(onClick = { draft = draft.copy(backgroundImagePath = null, backgroundStyle = "Solid") }) { Text("REMOVE BACKGROUND IMAGE") }
+                OutlinedButton(onClick = {
+                    draft.backgroundImagePath?.let { File(it).delete() }
+                    draft = draft.copy(backgroundImagePath = null, backgroundStyle = "Solid")
+                }) { Text("REMOVE BACKGROUND IMAGE") }
                 AppearanceSlider("Image Scale", draft.backgroundScale, 1f..2.5f) { draft = draft.copy(backgroundScale = it) }
                 AppearanceSlider("Image Horizontal Position", draft.backgroundOffsetX, -1f..1f) { draft = draft.copy(backgroundOffsetX = it) }
                 AppearanceSlider("Image Vertical Position", draft.backgroundOffsetY, -1f..1f) { draft = draft.copy(backgroundOffsetY = it) }
             }
         } else if (draft.backgroundStyle == "Solid") {
-            OutlinedButton(onClick = { draft = draft.copy(backgroundStyle = "Solid") }) { Text("ADD CUSTOM BACKGROUND COLOR") }
+            Text("CUSTOM BACKGROUND COLOR", style = MaterialTheme.typography.labelLarge)
             AppearanceColorEditor("Background Color", draft.backgroundColor) { draft = draft.copy(backgroundColor = it) }
         } else if (draft.backgroundStyle == "Gradient") {
             AppearanceColorEditor("Gradient Start", draft.gradientStart) { draft = draft.copy(gradientStart = it) }
