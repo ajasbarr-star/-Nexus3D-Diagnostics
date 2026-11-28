@@ -27,6 +27,8 @@ class SupabaseAccountRepository(context: Context) {
         private const val ACCESS = "access_token"
         private const val REFRESH = "refresh_token"
         private const val EXPIRES = "expires_at"
+        private const val REMEMBER_ME = "remember_me"
+        private const val RECOVERY_PENDING = "password_recovery_pending"
     }
 
     private val preferences by lazy {
@@ -44,6 +46,14 @@ class SupabaseAccountRepository(context: Context) {
 
     fun hasSession(): Boolean = !preferences.getString(ACCESS, null).isNullOrBlank() &&
         !preferences.getString(REFRESH, null).isNullOrBlank()
+
+    fun shouldRememberSession(): Boolean = preferences.getBoolean(REMEMBER_ME, true)
+
+    fun isPasswordRecoveryPending(): Boolean = preferences.getBoolean(RECOVERY_PENDING, false)
+
+    fun setRememberMe(enabled: Boolean) {
+        preferences.edit().putBoolean(REMEMBER_ME, enabled).apply()
+    }
 
     suspend fun signUp(email: String, password: String): String = withContext(Dispatchers.IO) {
         val result = request(
@@ -74,14 +84,37 @@ class SupabaseAccountRepository(context: Context) {
         "If this account is eligible for confirmation, a new confirmation email has been requested. Check your inbox and spam folder."
     }
 
-    suspend fun signIn(email: String, password: String) = withContext(Dispatchers.IO) {
+    suspend fun signIn(email: String, password: String, rememberMe: Boolean = true) = withContext(Dispatchers.IO) {
         val result = request(
             path = "/auth/v1/token?grant_type=password",
             method = "POST",
             body = JSONObject().put("email", email.trim()).put("password", password)
         )
         saveSessionIfPresent(result)
+        setRememberMe(rememberMe)
         if (!hasSession()) error("Sign-in did not return a valid session. Confirm your email, then try again.")
+    }
+
+    suspend fun requestPasswordReset(email: String): String = withContext(Dispatchers.IO) {
+        val normalizedEmail = email.trim()
+        require(normalizedEmail.contains("@")) { "Enter the registered email address first." }
+        request(
+            path = "/auth/v1/recover?redirect_to=" + URLEncoder.encode(AUTH_REDIRECT_URI, "UTF-8"),
+            method = "POST",
+            body = JSONObject().put("email", normalizedEmail)
+        )
+        "If this email belongs to an account, a password reset link has been sent. Check your inbox and spam folder."
+    }
+
+    suspend fun updatePassword(newPassword: String) = withContext(Dispatchers.IO) {
+        require(newPassword.length >= 6) { "New password must contain at least 6 characters." }
+        request(
+            path = "/auth/v1/user",
+            method = "PUT",
+            body = JSONObject().put("password", newPassword),
+            bearer = freshAccessToken()
+        )
+        preferences.edit().putBoolean(RECOVERY_PENDING, false).apply()
     }
 
     suspend fun createEnrollmentCode(): EnrollmentCode = withContext(Dispatchers.IO) {
@@ -316,6 +349,7 @@ class SupabaseAccountRepository(context: Context) {
             return "$errorCode: " + description.ifBlank { "Email confirmation failed. Request a new confirmation email." }
         }
 
+        val callbackType = parameter("type")
         val accessToken = parameter("access_token")
         val refreshToken = parameter("refresh_token")
         if (accessToken.isNullOrBlank() || refreshToken.isNullOrBlank()) {
@@ -329,6 +363,10 @@ class SupabaseAccountRepository(context: Context) {
                 .put("refresh_token", refreshToken)
                 .put("expires_in", expiresIn)
         )
+        if (callbackType.equals("recovery", ignoreCase = true)) {
+            preferences.edit().putBoolean(RECOVERY_PENDING, true).putBoolean(REMEMBER_ME, true).apply()
+            return "Password reset link verified. Enter and save your new password in Nexus3D Diagnostics."
+        }
         return "Email confirmed. Your Diagnostics session is ready."
     }
 
