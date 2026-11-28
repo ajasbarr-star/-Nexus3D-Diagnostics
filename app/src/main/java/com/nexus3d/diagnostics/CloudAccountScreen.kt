@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -54,6 +55,7 @@ fun CloudAccountScreen(
     val clipboard = LocalClipboardManager.current
     var email by remember { mutableStateOf("ajasbarr@gmail.com") }
     var rememberLogin by remember { mutableStateOf(repository.isRememberLoginEnabled()) }
+    var showSignOutConfirmation by remember { mutableStateOf(false) }
     var password by remember { mutableStateOf("") }
     var signedIn by remember { mutableStateOf(repository.hasSession()) }
     var busy by remember { mutableStateOf(false) }
@@ -329,15 +331,26 @@ fun CloudAccountScreen(
 
                 IconButton(
                     enabled = !busy,
-                    onClick = {
-                        repository.signOut()
-                        signedIn = false
-                        enrollment = null
-                        adminStatus = null
-                        message = "Signed out."
-                        onSignOut()
-                    }
-                 ) { Icon(Icons.Default.Logout, contentDescription = "Sign Out", modifier = Modifier.size((24f * appearance.iconScale).dp)) }
+                    onClick = { showSignOutConfirmation = true }
+                ) { Icon(Icons.Default.Logout, contentDescription = "Sign Out", modifier = Modifier.size((24f * appearance.iconScale).dp)) }
+
+                if (showSignOutConfirmation) AlertDialog(
+                    onDismissRequest = { showSignOutConfirmation = false },
+                    title = { Text("Sign out?") },
+                    text = { Text("Your login session will be cleared. The permanent Owner Admin registration and Unique Admin ID will remain unchanged.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showSignOutConfirmation = false
+                            repository.signOut()
+                            signedIn = false
+                            enrollment = null
+                            adminStatus = null
+                            message = "Signed out."
+                            onSignOut()
+                        }) { Text("Sign Out") }
+                    },
+                    dismissButton = { TextButton(onClick = { showSignOutConfirmation = false }) { Text("Cancel") } }
+                )
             }
 
             if (busy) CircularProgressIndicator()
