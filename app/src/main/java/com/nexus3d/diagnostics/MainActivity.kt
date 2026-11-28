@@ -272,24 +272,41 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                             Text("NAVIGATION & REPORTS",style=MaterialTheme.typography.titleMedium)
                             TextButton(onClick={leftOpen=false}){Text("Close ✕")}
                         }
-                        DrawerSection("Device Inventory List","Registered Editor installations",leftExpanded=="Device Inventory List",{leftExpanded=if(leftExpanded=="Device Inventory List")"" else "Device Inventory List"}) {
-                            DeviceInventoryScreen(cloudAccountRepository,onBack={},onOpenCloudAccount={leftExpanded="";rightOpen=true;leftOpen=false},inline=true)
+                        DrawerSection("Admin Profile","Permanent Owner Admin account and enrollment",leftExpanded=="Admin Profile",{leftExpanded=if(leftExpanded=="Admin Profile")"" else "Admin Profile"}) {
+                            CloudAccountScreen(cloudAccountRepository,onBack={},inline=true,onSignOut=onSignOut)
                         }
-                        DrawerSection("All Events / Reports","${events.size} saved event(s)",leftExpanded=="All Events / Reports",{leftExpanded=if(leftExpanded=="All Events / Reports")"" else "All Events / Reports"}) {
-                            DrawerEventList(events){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
-                            TextButton(onClick={screen=DiagnosticsScreen.EVENTS;leftOpen=false}){Text("Open full report view")}
+                        DrawerSection("Device Inventory","Registered Nexus3D Editor installations",leftExpanded=="Device Inventory",{leftExpanded=if(leftExpanded=="Device Inventory")"" else "Device Inventory"}) {
+                            DeviceInventoryScreen(
+                                cloudAccountRepository,
+                                onBack={},
+                                onOpenCloudAccount={leftExpanded="Admin Profile"},
+                                inline=true,
+                                events=events,
+                                onEventSelected={e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            )
                         }
-                        DrawerSection("RDS LogCat","${events.count{it.source=="RDS_LOGCAT"}} report(s)",leftExpanded=="RDS LogCat",{leftExpanded=if(leftExpanded=="RDS LogCat")"" else "RDS LogCat"}) {
-                            DrawerEventList(events.filter{it.source=="RDS_LOGCAT"}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
-                        }
-                        DrawerSection("RIT Trace","${events.count{it.source=="RIT_TRACE"}} report(s)",leftExpanded=="RIT Trace",{leftExpanded=if(leftExpanded=="RIT Trace")"" else "RIT Trace"}) {
-                            DrawerEventList(events.filter{it.source=="RIT_TRACE"}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
-                        }
-                        DrawerSection("Errors","ERROR / FATAL reports",leftExpanded=="Errors",{leftExpanded=if(leftExpanded=="Errors")"" else "Errors"}) {
-                            DrawerEventList(events.filter{it.severity.equals("ERROR",true)||it.severity.equals("FATAL",true)}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
-                        }
-                        DrawerSection("Warnings","WARN / WARNING reports",leftExpanded=="Warnings",{leftExpanded=if(leftExpanded=="Warnings")"" else "Warnings"}) {
-                            DrawerEventList(events.filter{it.severity.equals("WARN",true)||it.severity.equals("WARNING",true)}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                        DrawerSection("GLOBAL REPORTS","Consolidated reports across all registered devices • ${events.size} record(s)",leftExpanded=="GLOBAL REPORTS",{leftExpanded=if(leftExpanded=="GLOBAL REPORTS")"" else "GLOBAL REPORTS"}) {
+                            DrawerSection("Full Reports","${events.size} record(s)",leftExpanded=="Full Reports",{leftExpanded=if(leftExpanded=="Full Reports")"" else "Full Reports"}) {
+                                DrawerEventList(events){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("Error Reports","${events.count{it.severity.equals("ERROR",true)||it.severity.equals("FATAL",true)}} record(s)",leftExpanded=="Error Reports",{leftExpanded=if(leftExpanded=="Error Reports")"" else "Error Reports"}) {
+                                DrawerEventList(events.filter{it.severity.equals("ERROR",true)||it.severity.equals("FATAL",true)}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("Warning Reports","${events.count{it.severity.equals("WARN",true)||it.severity.equals("WARNING",true)}} record(s)",leftExpanded=="Warning Reports",{leftExpanded=if(leftExpanded=="Warning Reports")"" else "Warning Reports"}) {
+                                DrawerEventList(events.filter{it.severity.equals("WARN",true)||it.severity.equals("WARNING",true)}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("Performance Reports","${events.count{it.source.contains("PERFORMANCE",true)||it.source.contains("PERF",true)}} record(s)",leftExpanded=="Performance Reports",{leftExpanded=if(leftExpanded=="Performance Reports")"" else "Performance Reports"}) {
+                                DrawerEventList(events.filter{it.source.contains("PERFORMANCE",true)||it.source.contains("PERF",true)}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("RDS LogCat Reports","${events.count{it.source=="RDS_LOGCAT"}} record(s)",leftExpanded=="RDS LogCat Reports",{leftExpanded=if(leftExpanded=="RDS LogCat Reports")"" else "RDS LogCat Reports"}) {
+                                DrawerEventList(events.filter{it.source=="RDS_LOGCAT"}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("RIT Trace Reports","${events.count{it.source=="RIT_TRACE"}} record(s)",leftExpanded=="RIT Trace Reports",{leftExpanded=if(leftExpanded=="RIT Trace Reports")"" else "RIT Trace Reports"}) {
+                                DrawerEventList(events.filter{it.source=="RIT_TRACE"}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("Session Reports","${events.count{it.sessionId!=null}} record(s)",leftExpanded=="Session Reports",{leftExpanded=if(leftExpanded=="Session Reports")"" else "Session Reports"}) {
+                                DrawerEventList(events.filter{it.sessionId!=null}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
                         }
                     }
                 }
