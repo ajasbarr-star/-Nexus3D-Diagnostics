@@ -3,6 +3,7 @@ package com.nexus3d.diagnostics
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -60,6 +61,14 @@ class DiagnosticsDrawerGestureInstrumentedTest {
         }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Device Inventory List").assertIsDisplayed()
+        composeRule.onRoot().performTouchInput {
+            val y = center.y
+            down(Offset(160f, y))
+            moveTo(Offset(1f, y), 350)
+            up()
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Device Inventory List").assertDoesNotExist()
     }
 
     @Test
@@ -75,5 +84,13 @@ class DiagnosticsDrawerGestureInstrumentedTest {
         }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Appearance & Settings").assertIsDisplayed()
+        composeRule.onRoot().performTouchInput {
+            val y = center.y
+            down(Offset(rootWidth - 160f, y))
+            moveTo(Offset(rootWidth - 1f, y), 350)
+            up()
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Appearance & Settings").assertDoesNotExist()
     }
 }
