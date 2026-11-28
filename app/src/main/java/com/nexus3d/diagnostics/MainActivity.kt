@@ -252,7 +252,7 @@ internal fun DiagnosticsHome(
                 if(leftOpen || rightOpen) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha=0.62f)).clickable{leftOpen=false;rightOpen=false})
 
                 AnimatedVisibility(leftOpen,Modifier.align(Alignment.CenterStart),enter=slideInHorizontally(initialOffsetX={-it})+fadeIn(),exit=slideOutHorizontally(targetOffsetX={-it})+fadeOut()) {
-                    Column(Modifier.widthIn(max=340.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surface,RoundedCornerShape(topEnd=20.dp,bottomEnd=20.dp)).border(1.dp,MaterialTheme.colorScheme.outline,RoundedCornerShape(topEnd=20.dp,bottomEnd=20.dp)).verticalScroll(rememberScrollState()).padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.widthIn(max=340.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surface,RoundedCornerShape(topEnd=20.dp,bottomEnd=20.dp)).border(1.dp,MaterialTheme.colorScheme.outline,RoundedCornerShape(topEnd=20.dp,bottomEnd=20.dp)).pointerInput(leftOpen) { detectHorizontalDragGestures { _, dragAmount -> if (dragAmount < -7f) leftOpen = false } }.verticalScroll(rememberScrollState()).padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                             Text("NAVIGATION & REPORTS",style=MaterialTheme.typography.titleMedium)
                             TextButton(onClick={leftOpen=false}){Text("Close ✕")}
@@ -280,7 +280,7 @@ internal fun DiagnosticsHome(
                 }
 
                 AnimatedVisibility(rightOpen,Modifier.align(Alignment.CenterEnd),enter=slideInHorizontally(initialOffsetX={it})+fadeIn(),exit=slideOutHorizontally(targetOffsetX={it})+fadeOut()) {
-                    Column(Modifier.widthIn(max=340.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surface,RoundedCornerShape(topStart=20.dp,bottomStart=20.dp)).border(1.dp,MaterialTheme.colorScheme.outline,RoundedCornerShape(topStart=20.dp,bottomStart=20.dp)).verticalScroll(rememberScrollState()).padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.widthIn(max=340.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surface,RoundedCornerShape(topStart=20.dp,bottomStart=20.dp)).border(1.dp,MaterialTheme.colorScheme.outline,RoundedCornerShape(topStart=20.dp,bottomStart=20.dp)).pointerInput(rightOpen) { detectHorizontalDragGestures { _, dragAmount -> if (dragAmount > 7f) rightOpen = false } }.verticalScroll(rememberScrollState()).padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                             Text("SYSTEM & MANAGEMENT",style=MaterialTheme.typography.titleMedium)
                             TextButton(onClick={rightOpen=false}){Text("Close ✕")}
@@ -332,26 +332,7 @@ internal fun DiagnosticsHome(
                             }
                     )
                 }
-                if (leftOpen) {
-                    Box(
-                        Modifier.align(Alignment.CenterStart).fillMaxHeight().width(28.dp)
-                            .pointerInput(leftOpen) {
-                                detectHorizontalDragGestures { _, dragAmount ->
-                                    if (dragAmount < -7f) leftOpen = false
-                                }
-                            }
-                    )
-                }
-                if (rightOpen) {
-                    Box(
-                        Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(28.dp)
-                            .pointerInput(rightOpen) {
-                                detectHorizontalDragGestures { _, dragAmount ->
-                                    if (dragAmount > 7f) rightOpen = false
-                                }
-                            }
-                    )
-                }
+
             }
         }
 }
