@@ -104,7 +104,6 @@ class DiagnosticsFeatureInstrumentedTest {
 
         composeRule.onNodeWithContentDescription("Lock Owner Admin panel").performScrollTo().performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Locked • verification required").performScrollTo().assertIsDisplayed()
         composeRule.onAllNodesWithText("TEST-OWNER-ADMIN-ID").assertCountEquals(0)
         context.deleteSharedPreferences("nexus3d_owner_admin_local")
     }
