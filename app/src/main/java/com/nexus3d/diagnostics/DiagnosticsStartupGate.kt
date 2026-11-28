@@ -326,7 +326,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                     Text("Permanent Admin Unique ID", style = MaterialTheme.typography.titleMedium)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(status?.adminId ?: "Unavailable", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                        IconButton(enabled = !status?.adminId.isNullOrBlank(), onClick = {
+                        IconButton(enabled = status?.adminId?.isNotBlank() == true, onClick = {
                             status?.adminId?.let { clipboard.setText(AnnotatedString(it)); message = "Permanent Admin Unique ID copied." }
                         }) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy Permanent Admin Unique ID") }
                     }
