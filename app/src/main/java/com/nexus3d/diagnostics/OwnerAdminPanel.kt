@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -219,7 +220,7 @@ fun OwnerAdminStatusbarPanel(
                 Text("Verified Owner Admin: ajasbarr@gmail.com", style = MaterialTheme.typography.bodySmall)
                 Text("Permanent Admin Unique ID", style = MaterialTheme.typography.labelMedium)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(adminId, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    Text(adminId, modifier = Modifier.weight(1f).testTag("ownerAdminProtectedId"), style = MaterialTheme.typography.bodyMedium)
                     IconButton(onClick = {
                         clipboard.setText(AnnotatedString(adminId))
                         message = "Permanent Admin Unique ID copied."
@@ -282,7 +283,14 @@ fun OwnerAdminStatusbarPanel(
                         Icon(Icons.Default.LockReset, contentDescription = null, modifier = Modifier.size(scaledIconSize))
                         Text("RESET PIN/PASS")
                     }
-                    IconButton(onClick = { unlocked = false; expanded = false }) {
+                    IconButton(
+                        modifier = Modifier.testTag("ownerAdminLockButton"),
+                        onClick = {
+                            unlocked = false
+                            expanded = false
+                            message = "Owner Admin panel locked."
+                        }
+                    ) {
                         Icon(Icons.Default.Lock, contentDescription = "Lock Owner Admin panel", modifier = Modifier.size(scaledIconSize))
                     }
                 }
