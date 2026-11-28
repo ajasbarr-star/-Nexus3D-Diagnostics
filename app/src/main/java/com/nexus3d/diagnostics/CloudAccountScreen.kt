@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
@@ -51,7 +52,8 @@ fun CloudAccountScreen(
     val appearance = LocalDiagnosticsAppearance.current
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
-    var email by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("ajasbarr@gmail.com") }
+    var rememberLogin by remember { mutableStateOf(repository.isRememberLoginEnabled()) }
     var password by remember { mutableStateOf("") }
     var signedIn by remember { mutableStateOf(repository.hasSession()) }
     var busy by remember { mutableStateOf(false) }
@@ -127,6 +129,13 @@ fun CloudAccountScreen(
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true
                 )
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Checkbox(checked = rememberLogin, onCheckedChange = {
+                        rememberLogin = it
+                        repository.setRememberLogin(it)
+                    })
+                    Text("✔ REMEMBER MY LOGIN")
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
                         enabled = !busy && email.contains("@") && password.length >= 6,
@@ -136,7 +145,7 @@ fun CloudAccountScreen(
                             message = ""
                             scope.launch {
                                 try {
-                                    repository.signIn(email, password)
+                                    repository.signIn(email, password, rememberLogin)
                                     signedIn = true
                                     message = "Signed in successfully."
                                 } catch (error: Exception) {
@@ -155,7 +164,7 @@ fun CloudAccountScreen(
                             message = ""
                             scope.launch {
                                 try {
-                                    message = repository.signUp(email, password)
+                                    message = repository.signUp(email, password, rememberLogin)
                                     signedIn = repository.hasSession()
                                 } catch (error: Exception) {
                                     errorMessage = error.message ?: "Unable to create account."
@@ -166,6 +175,23 @@ fun CloudAccountScreen(
                         }
                     ) { Text("Create Account") }
                 }
+                TextButton(
+                    enabled = !busy && email.trim().equals("ajasbarr@gmail.com", ignoreCase = true),
+                    onClick = {
+                        busy = true
+                        errorMessage = ""
+                        message = ""
+                        scope.launch {
+                            try {
+                                message = repository.requestPasswordReset(email)
+                            } catch (error: Exception) {
+                                errorMessage = error.message ?: "Unable to request password recovery."
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                ) { Text("RESET PASSWORD") }
                 OutlinedButton(
                     enabled = !busy && email.contains("@"),
                     onClick = {
