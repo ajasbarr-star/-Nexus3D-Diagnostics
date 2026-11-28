@@ -11,9 +11,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextClearance
@@ -102,9 +104,10 @@ class DiagnosticsFeatureInstrumentedTest {
         assertTrue(store.verifyCredential("654321"))
         assertFalse(store.verifyCredential("123456"))
 
-        composeRule.onNodeWithContentDescription("Lock Owner Admin panel").performScrollTo().performClick()
+        composeRule.onNodeWithTag("ownerAdminLockButton").performScrollTo().performClick()
         composeRule.waitForIdle()
-        composeRule.onAllNodesWithText("TEST-OWNER-ADMIN-ID").assertCountEquals(0)
+        composeRule.onNodeWithText("Owner Admin panel locked.").assertIsDisplayed()
+        composeRule.onAllNodesWithTag("ownerAdminProtectedId").assertCountEquals(0)
         context.deleteSharedPreferences("nexus3d_owner_admin_local")
     }
 
