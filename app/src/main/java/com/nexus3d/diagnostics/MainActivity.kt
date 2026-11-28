@@ -2,10 +2,13 @@
 package com.nexus3d.diagnostics
 
 import android.os.Bundle
+import android.net.Uri
+import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
@@ -50,6 +53,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
@@ -102,6 +110,12 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
     val surfaceColor = parseHexColor(prefs.getString("${appearanceScope}_surface_hex", prefs.getString("surface_hex", "#2D3034")), Color(0xFF2D3034))
     val textColor = parseHexColor(prefs.getString("${appearanceScope}_text_hex", prefs.getString("text_hex", "#E8EAED")), Color(0xFFE8EAED))
     val borderColor = parseHexColor(prefs.getString("${appearanceScope}_border_hex", prefs.getString("border_hex", "#60666D")), Color(0xFF60666D))
+    val panelOpacity = prefs.getFloat("${appearanceScope}_panel_opacity", prefs.getFloat("panel_opacity", 1f)).coerceIn(0.25f, 1f)
+    val backgroundBlur = prefs.getFloat("${appearanceScope}_blur", prefs.getFloat("blur", 0f)).coerceIn(0f, 24f)
+    val backgroundBrightness = prefs.getFloat("${appearanceScope}_brightness", prefs.getFloat("brightness", 1f)).coerceIn(0.4f, 1.5f)
+    val gradientEnabled = prefs.getBoolean("${appearanceScope}_gradient_enabled", prefs.getBoolean("gradient_enabled", false))
+    val gradientEnd = parseHexColor(prefs.getString("${appearanceScope}_gradient_end_hex", prefs.getString("gradient_end_hex", "#101923")), Color(0xFF101923))
+    val backgroundImageUri = prefs.getString("${appearanceScope}_background_image_uri", prefs.getString("background_image_uri", "")) ?: ""
     @Suppress("UNUSED_EXPRESSION")
     appearanceRefresh
     var screen by remember { mutableStateOf(DiagnosticsScreen.HOME) }
@@ -118,7 +132,7 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
         primary = primaryColor,
         secondary = parseHexColor(prefs.getString("${appearanceScope}_button_hex", prefs.getString("button_hex", "#80CBC4")), Color(0xFF9EADB5)),
         background = backgroundColor,
-        surface = surfaceColor,
+        surface = surfaceColor.copy(alpha = panelOpacity),
         surfaceVariant = surfaceColor.copy(alpha = 0.92f),
         onSurface = textColor,
         onBackground = textColor,
@@ -144,7 +158,7 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
     }
 
     MaterialTheme(colorScheme=colors) {
-        Surface(Modifier.fillMaxSize(), color=MaterialTheme.colorScheme.background) {
+        Surface(Modifier.fillMaxSize(), color=Color.Transparent) {
             if (showClearConfirmation) AlertDialog(
                 onDismissRequest={showClearConfirmation=false},
                 title={Text("Clear all diagnostic events?")},
@@ -152,7 +166,27 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                 confirmButton={TextButton(onClick={showClearConfirmation=false; scope.launch { database.eventDao().clearAll() }}) { Text("Clear all") }},
                 dismissButton={TextButton(onClick={showClearConfirmation=false}) { Text("Cancel") }}
             )
-            Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier.fillMaxSize().background(
+                    if (gradientEnabled) Brush.linearGradient(listOf(backgroundColor, gradientEnd))
+                    else androidx.compose.ui.graphics.SolidColor(backgroundColor)
+                )
+            ) {
+                val customBackgroundBitmap = remember(backgroundImageUri, appearanceRefresh) {
+                    if (backgroundImageUri.isBlank()) null else runCatching {
+                        context.contentResolver.openInputStream(Uri.parse(backgroundImageUri))?.use { stream ->
+                            BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                        }
+                    }.getOrNull()
+                }
+                if (customBackgroundBitmap != null) {
+                    Image(
+                        bitmap = customBackgroundBitmap,
+                        contentDescription = "Custom Diagnostics background",
+                        modifier = Modifier.fillMaxSize().blur(backgroundBlur.dp).alpha(backgroundBrightness.coerceIn(0f, 1f)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
                 if (screen == DiagnosticsScreen.HOME) {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement=Arrangement.spacedBy(14.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
