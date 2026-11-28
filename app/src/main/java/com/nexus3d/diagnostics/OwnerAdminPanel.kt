@@ -232,9 +232,6 @@ fun OwnerAdminStatusbarPanel(
                     Text("Profile picture crop / zoom", style = MaterialTheme.typography.bodySmall)
                     Slider(value = profileScale, onValueChange = { profileScale = it; store.saveImageCrop("profile", it) }, valueRange = 1f..2.5f)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                }
-
                 Text("COVER PHOTO", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton(onClick = { coverPicker.launch("image/*") }) {
@@ -252,7 +249,6 @@ fun OwnerAdminStatusbarPanel(
                     Slider(value = coverOffsetX, onValueChange = { coverOffsetX = it; store.saveImageCrop("cover", coverScale, it, coverOffsetY) }, valueRange = -1f..1f)
                     Text("Cover vertical position", style = MaterialTheme.typography.bodySmall)
                     Slider(value = coverOffsetY, onValueChange = { coverOffsetY = it; store.saveImageCrop("cover", coverScale, coverOffsetX, it) }, valueRange = -1f..1f)
-                }
                 }
 
                 Row(
