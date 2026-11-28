@@ -30,6 +30,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -56,6 +58,7 @@ data class DiagnosticsAppearance(
     val backgroundColor: Int = 0xFF242629.toInt(),
     val gradientStart: Int = 0xFF101923.toInt(),
     val gradientEnd: Int = 0xFF253F55.toInt(),
+    val gradientAngle: Float = 135f,
     val accentColor: Int = 0xFF80CBC4.toInt(),
     val textColor: Int = 0xFFE8EAED.toInt(),
     val panelColor: Int = 0xFF2D3034.toInt(),
@@ -88,6 +91,7 @@ class DiagnosticsAppearanceStore(context: Context) {
         backgroundColor = prefs.getInt("backgroundColor", DiagnosticsAppearance.Default.backgroundColor),
         gradientStart = prefs.getInt("gradientStart", DiagnosticsAppearance.Default.gradientStart),
         gradientEnd = prefs.getInt("gradientEnd", DiagnosticsAppearance.Default.gradientEnd),
+        gradientAngle = prefs.getFloat("gradientAngle", 135f),
         accentColor = prefs.getInt("accentColor", DiagnosticsAppearance.Default.accentColor),
         textColor = prefs.getInt("textColor", DiagnosticsAppearance.Default.textColor),
         panelColor = prefs.getInt("panelColor", DiagnosticsAppearance.Default.panelColor),
@@ -114,6 +118,7 @@ class DiagnosticsAppearanceStore(context: Context) {
             .putInt("backgroundColor", value.backgroundColor)
             .putInt("gradientStart", value.gradientStart)
             .putInt("gradientEnd", value.gradientEnd)
+            .putFloat("gradientAngle", value.gradientAngle)
             .putInt("accentColor", value.accentColor)
             .putInt("textColor", value.textColor)
             .putInt("panelColor", value.panelColor)
@@ -136,8 +141,8 @@ class DiagnosticsAppearanceStore(context: Context) {
 }
 
 fun DiagnosticsAppearance.toColorScheme(): ColorScheme = darkColorScheme(
-    primary = Color(accentColor),
-    secondary = Color(buttonColor),
+    primary = Color(buttonColor),
+    secondary = Color(accentColor),
     background = Color(backgroundColor),
     surface = Color(panelColor).copy(alpha = panelOpacity.coerceIn(0.2f, 1f)),
     surfaceVariant = Color(panelColor).copy(alpha = panelOpacity.coerceIn(0.2f, 1f)),
@@ -175,6 +180,8 @@ fun DiagnosticsAppearance.toTypography(base: Typography): Typography {
     )
 }
 
+val LocalDiagnosticsAppearance = staticCompositionLocalOf { DiagnosticsAppearance.Default }
+
 @Composable
 fun DiagnosticsAppearanceBackdrop(
     settings: DiagnosticsAppearance,
@@ -187,11 +194,25 @@ fun DiagnosticsAppearanceBackdrop(
     }
     Box(Modifier.fillMaxSize()) {
         when (settings.backgroundStyle) {
-            "Gradient" -> Box(
-                Modifier.fillMaxSize().background(
-                    Brush.linearGradient(listOf(Color(settings.gradientStart), Color(settings.gradientEnd)))
+            "Gradient" -> {
+                val angle = Math.toRadians(settings.gradientAngle.toDouble())
+                val end = Offset(kotlin.math.cos(angle).toFloat() * 1200f, kotlin.math.sin(angle).toFloat() * 1200f)
+                Box(
+                    Modifier.fillMaxSize()
+                        .blur(settings.blur.coerceIn(0f, 24f).dp)
+                        .graphicsLayer(alpha = settings.opacity.coerceIn(0.15f, 1f))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    Color(brighten(settings.gradientStart, settings.brightness, settings.opacity)),
+                                    Color(brighten(settings.gradientEnd, settings.brightness, settings.opacity))
+                                ),
+                                start = Offset.Zero,
+                                end = end
+                            )
+                        )
                 )
-            )
+            }
             "Image" -> if (bitmap != null) {
                 val matrix = remember(settings.brightness) {
                     ColorMatrix().apply {
@@ -216,7 +237,12 @@ fun DiagnosticsAppearanceBackdrop(
             } else {
                 Box(Modifier.fillMaxSize().background(Color(settings.backgroundColor)))
             }
-            else -> Box(Modifier.fillMaxSize().background(Color(settings.backgroundColor)))
+            else -> Box(
+                Modifier.fillMaxSize()
+                    .blur(settings.blur.coerceIn(0f, 24f).dp)
+                    .graphicsLayer(alpha = settings.opacity.coerceIn(0.15f, 1f))
+                    .background(Color(brighten(settings.backgroundColor, settings.brightness, 1f)))
+            )
         }
         content()
     }
@@ -281,6 +307,7 @@ fun AppearanceSettingsPanel(
         } else if (draft.backgroundStyle == "Gradient") {
             AppearanceColorEditor("Gradient Start", draft.gradientStart) { draft = draft.copy(gradientStart = it) }
             AppearanceColorEditor("Gradient End", draft.gradientEnd) { draft = draft.copy(gradientEnd = it) }
+            AppearanceSlider("Gradient Direction", draft.gradientAngle, 0f..360f) { draft = draft.copy(gradientAngle = it) }
         }
 
         Text("UI COLORS", style = MaterialTheme.typography.labelLarge)
@@ -356,6 +383,16 @@ private fun AppearanceColorEditor(
         AppearanceSlider("Green", color.green * 255f, 0f..255f) { onChange(Color(color.red, it / 255f, color.blue, 1f).toArgb()) }
         AppearanceSlider("Blue", color.blue * 255f, 0f..255f) { onChange(Color(color.red, color.green, it / 255f, 1f).toArgb()) }
     }
+}
+
+private fun brighten(colorValue: Int, brightness: Float, opacity: Float): Int {
+    val color = Color(colorValue)
+    return Color(
+        red = (color.red * brightness).coerceIn(0f, 1f),
+        green = (color.green * brightness).coerceIn(0f, 1f),
+        blue = (color.blue * brightness).coerceIn(0f, 1f),
+        alpha = opacity.coerceIn(0.15f, 1f)
+    ).toArgb()
 }
 
 private fun saveAppearanceImage(context: Context, uri: Uri): String {
