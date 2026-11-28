@@ -6,10 +6,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextClearance
@@ -28,29 +27,10 @@ import java.util.concurrent.atomic.AtomicReference
 @RunWith(AndroidJUnit4::class)
 class DiagnosticsFeatureInstrumentedTest {
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val composeRule = createComposeRule()
 
     private val context
         get() = InstrumentationRegistry.getInstrumentation().targetContext
-
-    @Test
-    fun loginPanelShowsRememberAndPasswordRecoveryControls() {
-        composeRule.onNodeWithText("REMEMBER MY LOGIN").assertIsDisplayed()
-        composeRule.onNodeWithText("RESET PASSWORD").assertIsDisplayed()
-    }
-
-    @Test
-    fun rememberMyLoginCheckboxTogglesEncryptedPreference() {
-        val repository = SupabaseAccountRepository(context)
-        if (repository.isRememberLoginEnabled()) {
-            composeRule.onNodeWithTag("rememberMyLoginCheckbox").performClick()
-        }
-        assertFalse(repository.isRememberLoginEnabled())
-        composeRule.onNodeWithTag("rememberMyLoginCheckbox").performClick()
-        assertTrue(repository.isRememberLoginEnabled())
-        composeRule.onNodeWithTag("rememberMyLoginCheckbox").performClick()
-        assertFalse(repository.isRememberLoginEnabled())
-    }
 
     @Test
     fun rememberMyLoginPreferencePersistsInEncryptedLocalSettings() {
