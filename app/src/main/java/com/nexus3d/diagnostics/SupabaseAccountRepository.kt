@@ -413,7 +413,7 @@ class SupabaseAccountRepository(context: Context) {
      * Handles the Supabase implicit-flow callback delivered by the Android deep link.
      * The access and refresh tokens are stored in the existing encrypted session store.
      */
-    fun handleAuthCallback(uri: Uri): String? {
+    suspend fun handleAuthCallback(uri: Uri): String? {
         if (uri.scheme != "com.nexus3d.diagnostics" || uri.host != "auth-callback") return null
 
         val fragmentParams = Uri.parse("https://callback.invalid/?${uri.fragment.orEmpty()}")
