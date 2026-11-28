@@ -160,7 +160,7 @@ fun AppearanceSettingsScreen(
         Text("FULL CUSTOMIZATION", style = MaterialTheme.typography.titleMedium)
         Text("Choose whether changes apply across the app or only to one screen.")
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("global" to "All Screens", "home" to "Home", "drawer" to "Drawers", "reports" to "Reports", "devices" to "Devices", "admin" to "Admin").forEach { (key, label) ->
+            listOf("global" to "All Screens", "login" to "Login", "home" to "Home", "drawer" to "Drawers", "reports" to "Reports", "devices" to "Devices", "admin" to "Admin").forEach { (key, label) ->
                 FilterChip(selected = scope == key, onClick = { restoreDraft(key) }, label = { Text(label) })
             }
         }
