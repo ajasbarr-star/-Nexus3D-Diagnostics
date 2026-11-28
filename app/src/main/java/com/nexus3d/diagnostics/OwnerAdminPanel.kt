@@ -70,7 +70,8 @@ private enum class OwnerAdminDialog {
 @Composable
 fun OwnerAdminStatusbarPanel(
     status: OwnerAdminStatus?,
-    repository: SupabaseAccountRepository
+    repository: SupabaseAccountRepository,
+    autoLockTimeoutMillis: Long = 5 * 60 * 1000L
 ) {
     val owner = status ?: return
     val adminId = owner.adminId ?: return
@@ -112,15 +113,15 @@ fun OwnerAdminStatusbarPanel(
             .onFailure { error = it.message ?: "Unable to save cover photo." }
     }
 
-    DisposableEffect(unlocked) {
-        if (unlocked) {
+    DisposableEffect(unlocked, autoLockTimeoutMillis) {
+        if (unlocked && autoLockTimeoutMillis > 0L) {
             val handler = Handler(Looper.getMainLooper())
             val lockRunnable = Runnable {
                 unlocked = false
                 expanded = false
                 message = "Owner Admin panel locked after 5 minutes."
             }
-            handler.postDelayed(lockRunnable, 5 * 60 * 1000L)
+            handler.postDelayed(lockRunnable, autoLockTimeoutMillis)
             onDispose { handler.removeCallbacks(lockRunnable) }
         } else {
             onDispose { }
