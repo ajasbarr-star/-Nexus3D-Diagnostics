@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -85,6 +86,19 @@ class DiagnosticsFeatureInstrumentedTest {
         assertTrue(store.hasCredential())
         assertTrue(store.verifyCredential("123456"))
         assertFalse(store.verifyCredential("000000"))
+
+        composeRule.onNodeWithText("RESET PIN/PASS").performClick()
+        composeRule.onNodeWithText("Current PIN / Password").performTextInput("000000")
+        composeRule.onNodeWithText("New PIN / Password").performTextInput("654321")
+        composeRule.onNodeWithText("Confirm new PIN / Password").performTextInput("654321")
+        composeRule.onNodeWithText("Save Changes").performClick()
+        composeRule.onNodeWithText("Current PIN / Password is incorrect.").assertIsDisplayed()
+        composeRule.onNodeWithText("Current PIN / Password").performTextClearance()
+        composeRule.onNodeWithText("Current PIN / Password").performTextInput("123456")
+        composeRule.onNodeWithText("Save Changes").performClick()
+        composeRule.waitForIdle()
+        assertTrue(store.verifyCredential("654321"))
+        assertFalse(store.verifyCredential("123456"))
 
         composeRule.setContent {
             MaterialTheme {
