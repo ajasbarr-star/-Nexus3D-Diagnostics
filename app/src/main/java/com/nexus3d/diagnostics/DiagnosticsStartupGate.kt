@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.size
@@ -176,7 +177,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                     OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Gmail address") }, singleLine = true)
                     OutlinedTextField(value = password, onValueChange = { password = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
                     if (!registerMode) Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = rememberLogin, onCheckedChange = {
+                        Checkbox(modifier = Modifier.testTag("rememberMyLoginCheckbox"), checked = rememberLogin, onCheckedChange = {
                             rememberLogin = it
                             repository.setRememberLogin(it)
                         })
