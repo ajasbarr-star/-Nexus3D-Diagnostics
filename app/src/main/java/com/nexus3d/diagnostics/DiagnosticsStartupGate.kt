@@ -180,7 +180,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                             rememberLogin = it
                             repository.setRememberLogin(it)
                         })
-                        Text("✔ REMEMBER MY LOGIN")
+                        Text("REMEMBER MY LOGIN")
                     }
                     if (registerMode) OutlinedTextField(value = confirmPassword, onValueChange = { confirmPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Confirm Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
                     Button(
