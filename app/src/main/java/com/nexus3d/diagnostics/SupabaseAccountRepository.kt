@@ -401,7 +401,8 @@ class SupabaseAccountRepository(context: Context) {
     }
 
     fun signOut() {
-        preferences.edit().clear().apply()
+        val rememberChoice = isRememberLoginEnabled()
+        preferences.edit().clear().putBoolean(REMEMBER_LOGIN, rememberChoice).apply()
         transientAccessToken = null
         transientRefreshToken = null
         transientExpiresAt = 0L
