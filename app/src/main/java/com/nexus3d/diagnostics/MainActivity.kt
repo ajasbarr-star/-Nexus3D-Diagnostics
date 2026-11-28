@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
@@ -13,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,10 +51,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -64,6 +70,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyImmersiveFullscreen()
 
         cloudAccountRepository = SupabaseAccountRepository(applicationContext)
 
@@ -77,6 +84,20 @@ class MainActivity : ComponentActivity() {
             DiagnosticsStartupGate(database, cloudAccountRepository)
         }
     }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) applyImmersiveFullscreen()
+    }
+
+    private fun applyImmersiveFullscreen() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).let { controller ->
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
 }
 
 private enum class DiagnosticsScreen {
@@ -84,7 +105,7 @@ private enum class DiagnosticsScreen {
 }
 
 @Composable
-internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository, onSignOut: () -> Unit) {
+internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository, ownerAdminStatus: OwnerAdminStatus?, onSignOut: () -> Unit) {
     val context = LocalContext.current
     val events by database.eventDao().observeAll().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
@@ -137,11 +158,11 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
             Box(Modifier.fillMaxSize()) {
                 if (screen == DiagnosticsScreen.HOME) {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement=Arrangement.spacedBy(14.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
-                            OutlinedButton(onClick={rightOpen=false; leftOpen=true}) { Text("☰ Tools") }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.Center, verticalAlignment=Alignment.CenterVertically) {
                             Text("Nexus3D Diagnostics", style=MaterialTheme.typography.titleLarge)
-                            OutlinedButton(onClick={leftOpen=false; rightOpen=true}) { Text("Manage ⋮") }
                         }
+                        OwnerAdminStatusbarPanel(ownerAdminStatus, cloudAccountRepository)
+                        Text("Swipe inward from either screen edge to open the drawers.", style=MaterialTheme.typography.labelSmall, color=MaterialTheme.colorScheme.secondary)
                         Text("OFFLINE-FIRST DIAGNOSTIC WORKSPACE", style=MaterialTheme.typography.labelSmall, color=MaterialTheme.colorScheme.secondary)
                         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                             SummaryCard("Events",events.size.toString(),Modifier.weight(1f))
@@ -271,6 +292,52 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                             Text("Saved on this device and restored when the APK restarts.",style=MaterialTheme.typography.bodySmall)
                         }
                     }
+                }
+
+                // Narrow edge-only gesture zones avoid stealing ordinary viewport and scroll touches.
+                if (!leftOpen && !rightOpen) {
+                    Box(
+                        Modifier.align(Alignment.CenterStart).fillMaxHeight().width(28.dp)
+                            .pointerInput(leftOpen, rightOpen) {
+                                detectHorizontalDragGestures { _, dragAmount ->
+                                    if (dragAmount > 7f && !leftOpen && !rightOpen) {
+                                        leftOpen = true
+                                        rightOpen = false
+                                    }
+                                }
+                            }
+                    )
+                    Box(
+                        Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(28.dp)
+                            .pointerInput(leftOpen, rightOpen) {
+                                detectHorizontalDragGestures { _, dragAmount ->
+                                    if (dragAmount < -7f && !leftOpen && !rightOpen) {
+                                        rightOpen = true
+                                        leftOpen = false
+                                    }
+                                }
+                            }
+                    )
+                }
+                if (leftOpen) {
+                    Box(
+                        Modifier.align(Alignment.CenterStart).fillMaxHeight().width(28.dp)
+                            .pointerInput(leftOpen) {
+                                detectHorizontalDragGestures { _, dragAmount ->
+                                    if (dragAmount < -7f) leftOpen = false
+                                }
+                            }
+                    )
+                }
+                if (rightOpen) {
+                    Box(
+                        Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(28.dp)
+                            .pointerInput(rightOpen) {
+                                detectHorizontalDragGestures { _, dragAmount ->
+                                    if (dragAmount > 7f) rightOpen = false
+                                }
+                            }
+                    )
                 }
             }
         }
