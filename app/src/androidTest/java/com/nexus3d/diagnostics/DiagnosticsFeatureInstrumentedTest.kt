@@ -95,14 +95,35 @@ class DiagnosticsFeatureInstrumentedTest {
         assertTrue(store.verifyCredential("654321"))
         assertFalse(store.verifyCredential("123456"))
 
+        composeRule.onNodeWithContentDescription("Lock Owner Admin panel").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Locked • verification required").assertIsDisplayed()
+        composeRule.onAllNodesWithText("TEST-OWNER-ADMIN-ID").assertCountEquals(0)
+        context.deleteSharedPreferences("nexus3d_owner_admin_local")
+    }
+
+    @Test
+    fun existingOwnerAdminPinStartsLockedOnFreshPanelComposition() {
+        context.deleteSharedPreferences("nexus3d_owner_admin_local")
+        val store = OwnerAdminLocalStore(context)
+        store.saveCredential("PIN", "123456")
+        val owner = OwnerAdminStatus(
+            registered = true,
+            adminId = "RESTART-TEST-ADMIN-ID",
+            role = "owner_admin",
+            status = "active",
+            eligible = true,
+            emailVerified = true,
+            consentAccepted = true
+        )
         composeRule.setContent {
             MaterialTheme {
-                OwnerAdminStatusbarPanel(owner, repository)
+                OwnerAdminStatusbarPanel(owner, SupabaseAccountRepository(context))
             }
         }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Locked • verification required").assertIsDisplayed()
-        composeRule.onAllNodesWithText("TEST-OWNER-ADMIN-ID").assertCountEquals(0)
+        composeRule.onAllNodesWithText("RESTART-TEST-ADMIN-ID").assertCountEquals(0)
         context.deleteSharedPreferences("nexus3d_owner_admin_local")
     }
 
