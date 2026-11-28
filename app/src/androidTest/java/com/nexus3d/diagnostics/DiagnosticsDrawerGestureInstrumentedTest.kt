@@ -60,22 +60,27 @@ class DiagnosticsDrawerGestureInstrumentedTest {
             moveTo(Offset(160f, y), 350)
             up()
         }
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText("Device Inventory List").assertIsDisplayed()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Device Inventory List").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Device Inventory List").assertCountEquals(1)
         composeRule.onRoot().performTouchInput {
             val y = center.y
             down(Offset(160f, y))
             moveTo(Offset(1f, y), 350)
             up()
         }
-        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(500)
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Device Inventory List").fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onAllNodesWithText("Device Inventory List").assertCountEquals(0)
     }
 
     @Test
     fun swipeInFromRightEdgeOpensRightDrawer() {
         setDashboardContent()
-        composeRule.waitForIdle()
+        composeRule.waitUntil(5_000) { composeRule.onRoot().fetchSemanticsNode().size.width > 0 }
         val rootWidth = composeRule.onRoot().fetchSemanticsNode().size.width.toFloat()
         composeRule.onRoot().performTouchInput {
             val y = center.y
@@ -83,15 +88,20 @@ class DiagnosticsDrawerGestureInstrumentedTest {
             moveTo(Offset(rootWidth - 160f, y), 350)
             up()
         }
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText("Appearance & Settings").assertIsDisplayed()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Appearance & Settings").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Appearance & Settings").assertCountEquals(1)
         composeRule.onRoot().performTouchInput {
             val y = center.y
             down(Offset(rootWidth - 160f, y))
             moveTo(Offset(rootWidth - 1f, y), 350)
             up()
         }
-        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(500)
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Appearance & Settings").fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onAllNodesWithText("Appearance & Settings").assertCountEquals(0)
     }
 }
