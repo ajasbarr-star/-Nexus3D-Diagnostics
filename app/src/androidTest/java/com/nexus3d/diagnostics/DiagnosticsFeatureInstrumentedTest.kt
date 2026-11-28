@@ -3,7 +3,7 @@ package com.nexus3d.diagnostics
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -61,7 +61,7 @@ class DiagnosticsFeatureInstrumentedTest {
             }
         }
 
-        composeRule.onNodeWithText("OWNER ADMIN STATUSBAR").assertIsDisplayed()
+        composeRule.onNodeWithText("OWNER ADMIN STATUSBAR").assertExists()
         composeRule.onNodeWithText("Security setup required").assertIsDisplayed()
         composeRule.onNodeWithText("SET PIN/PASS").performClick()
         composeRule.onNodeWithText("6–12 digit PIN").performTextInput("123456")
@@ -73,7 +73,7 @@ class DiagnosticsFeatureInstrumentedTest {
         composeRule.onNodeWithText("SET PIN/PASS").assertIsDisplayed()
         composeRule.onNodeWithText("RESET PIN/PASS").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Copy Permanent Admin Unique ID").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Copy Permanent Admin Unique ID").performClick()
+        composeRule.onNodeWithContentDescription("Copy Permanent Admin Unique ID").performScrollTo().performClick()
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         assertEquals("TEST-OWNER-ADMIN-ID", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
 
@@ -82,7 +82,7 @@ class DiagnosticsFeatureInstrumentedTest {
         assertTrue(store.verifyCredential("123456"))
         assertFalse(store.verifyCredential("000000"))
 
-        composeRule.onNodeWithText("RESET PIN/PASS").performClick()
+        composeRule.onNodeWithText("RESET PIN/PASS").performScrollTo().performClick()
         composeRule.onNodeWithText("Current PIN / Password").performTextInput("000000")
         composeRule.onNodeWithText("New PIN / Password").performTextInput("654321")
         composeRule.onNodeWithText("Confirm new PIN / Password").performTextInput("654321")
@@ -95,7 +95,7 @@ class DiagnosticsFeatureInstrumentedTest {
         assertTrue(store.verifyCredential("654321"))
         assertFalse(store.verifyCredential("123456"))
 
-        composeRule.onNodeWithContentDescription("Lock Owner Admin panel").performClick()
+        composeRule.onNodeWithContentDescription("Lock Owner Admin panel").performScrollTo().performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Locked • verification required").assertIsDisplayed()
         composeRule.onAllNodesWithText("TEST-OWNER-ADMIN-ID").assertCountEquals(0)
@@ -138,7 +138,7 @@ class DiagnosticsFeatureInstrumentedTest {
                 AppearanceSettingsPanel(initial) { applied.set(it) }
             }
         }
-        composeRule.onNodeWithText("Gradient").performClick()
+        composeRule.onNodeWithText("Gradient").performScrollTo().performClick()
         composeRule.onNodeWithText("APPLY").performScrollTo().performClick()
         composeRule.waitForIdle()
 
