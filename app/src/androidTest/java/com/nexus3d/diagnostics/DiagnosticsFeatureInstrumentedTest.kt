@@ -100,6 +100,7 @@ class DiagnosticsFeatureInstrumentedTest {
                 OwnerAdminStatusbarPanel(owner, repository)
             }
         }
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("Locked • verification required").assertIsDisplayed()
         composeRule.onAllNodesWithText("TEST-OWNER-ADMIN-ID").assertCountEquals(0)
         context.deleteSharedPreferences("nexus3d_owner_admin_local")
