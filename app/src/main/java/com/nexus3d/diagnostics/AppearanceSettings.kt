@@ -83,9 +83,25 @@ data class DiagnosticsAppearance(
 }
 
 class DiagnosticsAppearanceStore(context: Context) {
-    private val prefs = context.getSharedPreferences("nexus3d_diagnostics_appearance_v2", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("nexus3d_diagnostics_appearance_v2", Context.MODE_PRIVATE)
 
-    fun load(): DiagnosticsAppearance = DiagnosticsAppearance(
+    fun load(): DiagnosticsAppearance {
+        if (!prefs.contains("themeName")) {
+            val legacyTheme = appContext.getSharedPreferences("nexus3d_diagnostics_appearance", Context.MODE_PRIVATE)
+                .getString("background_theme", null)
+            if (!legacyTheme.isNullOrBlank()) {
+                val migrated = when (legacyTheme) {
+                    "Graphite" -> DiagnosticsAppearance(themeName = legacyTheme, backgroundColor = 0xFF202326.toInt(), panelColor = 0xFF292D31.toInt(), accentColor = 0xFFB8C4D0.toInt(), textColor = 0xFFF0F1F2.toInt(), buttonColor = 0xFF9FAAB5.toInt())
+                    "Midnight" -> DiagnosticsAppearance(themeName = legacyTheme, backgroundColor = 0xFF080D16.toInt(), panelColor = 0xFF101827.toInt(), accentColor = 0xFF8AB4F8.toInt(), textColor = 0xFFE7EDF7.toInt(), buttonColor = 0xFF9AAFCB.toInt())
+                    "Deep Navy" -> DiagnosticsAppearance(themeName = legacyTheme, backgroundColor = 0xFF101923.toInt(), panelColor = 0xFF172635.toInt(), accentColor = 0xFF70D6E8.toInt(), textColor = 0xFFE5F1F5.toInt(), buttonColor = 0xFF9BB9D2.toInt())
+                    else -> DiagnosticsAppearance.Default
+                }
+                save(migrated)
+                return migrated
+            }
+        }
+        return DiagnosticsAppearance(
         themeName = prefs.getString("themeName", "Dark Gray") ?: "Dark Gray",
         backgroundStyle = prefs.getString("backgroundStyle", "Preset") ?: "Preset",
         backgroundColor = prefs.getInt("backgroundColor", DiagnosticsAppearance.Default.backgroundColor),
@@ -109,7 +125,8 @@ class DiagnosticsAppearanceStore(context: Context) {
         iconScale = prefs.getFloat("iconScale", 1f),
         backgroundImagePath = prefs.getString("backgroundImagePath", null),
         applyToAllScreens = prefs.getBoolean("applyToAllScreens", true)
-    )
+        )
+    }
 
     fun save(value: DiagnosticsAppearance) {
         prefs.edit()
