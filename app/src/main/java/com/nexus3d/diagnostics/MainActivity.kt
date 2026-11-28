@@ -542,7 +542,7 @@ private fun formatTimestamp(epochMs: Long): String {
     ).format(Date(epochMs))
 }
 
-private fun parseHexColor(value: String?, fallback: Color): Color = runCatching {
+internal fun parseHexColor(value: String?, fallback: Color): Color = runCatching {
     val raw = value?.trim()?.removePrefix("#") ?: error("Missing color")
     val argb = when (raw.length) {
         6 -> (0xFF000000L or raw.toLong(16)).toInt()
