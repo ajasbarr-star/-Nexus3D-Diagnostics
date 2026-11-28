@@ -36,6 +36,15 @@ class DiagnosticsFeatureInstrumentedTest {
     }
 
     @Test
+    fun rememberMyLoginPreferencePersistsInEncryptedLocalSettings() {
+        val repository = SupabaseAccountRepository(context)
+        repository.setRememberLogin(true)
+        assertTrue(repository.isRememberLoginEnabled())
+        repository.setRememberLogin(false)
+        assertFalse(repository.isRememberLoginEnabled())
+    }
+
+    @Test
     fun ownerAdminPinCanBeCreatedAndUniqueIdCanBeCopied() {
         context.deleteSharedPreferences("nexus3d_owner_admin_local")
         val repository = SupabaseAccountRepository(context)
