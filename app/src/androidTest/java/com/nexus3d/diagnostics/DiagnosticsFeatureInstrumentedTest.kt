@@ -4,6 +4,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -84,6 +85,14 @@ class DiagnosticsFeatureInstrumentedTest {
         assertTrue(store.hasCredential())
         assertTrue(store.verifyCredential("123456"))
         assertFalse(store.verifyCredential("000000"))
+
+        composeRule.setContent {
+            MaterialTheme {
+                OwnerAdminStatusbarPanel(owner, repository)
+            }
+        }
+        composeRule.onNodeWithText("Locked • verification required").assertIsDisplayed()
+        composeRule.onNodeWithText("TEST-OWNER-ADMIN-ID").assertDoesNotExist()
         context.deleteSharedPreferences("nexus3d_owner_admin_local")
     }
 
