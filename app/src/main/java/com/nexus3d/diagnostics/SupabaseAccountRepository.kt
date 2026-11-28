@@ -435,6 +435,8 @@ class SupabaseAccountRepository(context: Context) {
 
         val callbackType = parameter("type")
         if (callbackType == "recovery") {
+            // Persist the one-time recovery session across the callback Activity hand-off.
+            setRememberLogin(true)
             preferences.edit().putBoolean(PASSWORD_RECOVERY_PENDING, true).apply()
         }
         val expiresIn = parameter("expires_in")?.toLongOrNull()?.coerceAtLeast(60L) ?: 3600L
