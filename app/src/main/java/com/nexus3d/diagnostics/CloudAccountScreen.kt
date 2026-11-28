@@ -137,7 +137,7 @@ fun CloudAccountScreen(
                         rememberLogin = it
                         repository.setRememberLogin(it)
                     })
-                    Text("✔ REMEMBER MY LOGIN")
+                    Text("REMEMBER MY LOGIN")
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
