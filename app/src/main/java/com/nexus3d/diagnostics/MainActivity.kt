@@ -89,7 +89,21 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
     val events by database.eventDao().observeAll().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("nexus3d_diagnostics_appearance", 0) }
-    var themeName by remember { mutableStateOf(prefs.getString("background_theme", "Dark Gray") ?: "Dark Gray") }
+    val appearanceScope = when (screen) {
+        DiagnosticsScreen.EVENTS, DiagnosticsScreen.RDS_LOGCAT, DiagnosticsScreen.RIT_TRACE, DiagnosticsScreen.EVENT_DETAILS -> "reports"
+        DiagnosticsScreen.DEVICE_INVENTORY -> "devices"
+        DiagnosticsScreen.CLOUD_ACCOUNT -> "admin"
+        else -> "home"
+    }
+    var appearanceRefresh by remember { mutableStateOf(0) }
+    val themeName = prefs.getString("${appearanceScope}_background_theme", prefs.getString("background_theme", "Dark Gray")) ?: "Dark Gray"
+    val primaryColor = parseHexColor(prefs.getString("${appearanceScope}_primary_hex", prefs.getString("primary_hex", "#80CBC4")), Color(0xFF80CBC4))
+    val backgroundColor = parseHexColor(prefs.getString("${appearanceScope}_background_hex", prefs.getString("background_hex", "#242629")), Color(0xFF242629))
+    val surfaceColor = parseHexColor(prefs.getString("${appearanceScope}_surface_hex", prefs.getString("surface_hex", "#2D3034")), Color(0xFF2D3034))
+    val textColor = parseHexColor(prefs.getString("${appearanceScope}_text_hex", prefs.getString("text_hex", "#E8EAED")), Color(0xFFE8EAED))
+    val borderColor = parseHexColor(prefs.getString("${appearanceScope}_border_hex", prefs.getString("border_hex", "#60666D")), Color(0xFF60666D))
+    @Suppress("UNUSED_EXPRESSION")
+    appearanceRefresh
     var screen by remember { mutableStateOf(DiagnosticsScreen.HOME) }
     var selectedEvent by remember { mutableStateOf<DiagnosticEvent?>(null) }
     var searchText by remember { mutableStateOf("") }
@@ -100,12 +114,16 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
     var leftExpanded by remember { mutableStateOf("Device Inventory List") }
     var rightExpanded by remember { mutableStateOf("Appearance & Settings") }
 
-    val colors = when (themeName) {
-        "Graphite" -> darkColorScheme(primary=Color(0xFFB8C4D0), secondary=Color(0xFF9FAAB5), background=Color(0xFF202326), surface=Color(0xFF292D31), surfaceVariant=Color(0xFF373D42), onSurface=Color(0xFFF0F1F2), onBackground=Color(0xFFF0F1F2), outline=Color(0xFF596168))
-        "Midnight" -> darkColorScheme(primary=Color(0xFF8AB4F8), secondary=Color(0xFF9AAFCB), background=Color(0xFF080D16), surface=Color(0xFF101827), surfaceVariant=Color(0xFF1B2638), onSurface=Color(0xFFE7EDF7), onBackground=Color(0xFFE7EDF7), outline=Color(0xFF42516A))
-        "Deep Navy" -> darkColorScheme(primary=Color(0xFF70D6E8), secondary=Color(0xFF9BB9D2), background=Color(0xFF101923), surface=Color(0xFF172635), surfaceVariant=Color(0xFF223747), onSurface=Color(0xFFE5F1F5), onBackground=Color(0xFFE5F1F5), outline=Color(0xFF496274))
-        else -> darkColorScheme(primary=Color(0xFF80CBC4), secondary=Color(0xFF9EADB5), background=Color(0xFF242629), surface=Color(0xFF2D3034), surfaceVariant=Color(0xFF3A3E43), onSurface=Color(0xFFE8EAED), onBackground=Color(0xFFE8EAED), outline=Color(0xFF60666D))
-    }
+    val colors = darkColorScheme(
+        primary = primaryColor,
+        secondary = parseHexColor(prefs.getString("${appearanceScope}_button_hex", prefs.getString("button_hex", "#80CBC4")), Color(0xFF9EADB5)),
+        background = backgroundColor,
+        surface = surfaceColor,
+        surfaceVariant = surfaceColor.copy(alpha = 0.92f),
+        onSurface = textColor,
+        onBackground = textColor,
+        outline = borderColor
+    )
     val filteredEvents = events.filter { e ->
         (searchText.isBlank() || e.title.contains(searchText,true) || e.details.contains(searchText,true) || e.source.contains(searchText,true)) &&
         when (severityFilter) {
@@ -263,12 +281,13 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                             Text("App files size: ${formatHardwareBytes(bytes)}")
                             Text("Read-only overview. No records are changed or deleted here.",style=MaterialTheme.typography.bodySmall)
                         }
-                        DrawerSection("Appearance & Settings","Choose Diagnostics background style",rightExpanded=="Appearance & Settings",{rightExpanded=if(rightExpanded=="Appearance & Settings")"" else "Appearance & Settings"}) {
-                            Text("BACKGROUND STYLE",style=MaterialTheme.typography.labelLarge)
-                            listOf("Dark Gray","Graphite","Midnight","Deep Navy").forEach { option ->
-                                FilterChip(selected=themeName==option,onClick={themeName=option;prefs.edit().putString("background_theme",option).apply()},label={Text(option)})
+                        DrawerSection("Appearance & Settings","Full interface customization",rightExpanded=="Appearance & Settings",{rightExpanded=if(rightExpanded=="Appearance & Settings")"" else "Appearance & Settings"}) {
+                            AppearanceSettingsScreen(prefs) { scope, _, _, _, _, _, _ ->
+                                appearanceRefresh = !appearanceRefresh
+                                if (scope == "global" || scope == appearanceScope) {
+                                    // Theme values are read from local preferences on recomposition.
+                                }
                             }
-                            Text("Saved on this device and restored when the APK restarts.",style=MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -461,3 +480,13 @@ private fun formatTimestamp(epochMs: Long): String {
         Locale.getDefault()
     ).format(Date(epochMs))
 }
+
+private fun parseHexColor(value: String?, fallback: Color): Color = runCatching {
+    val raw = value?.trim()?.removePrefix("#") ?: error("Missing color")
+    val argb = when (raw.length) {
+        6 -> (0xFF000000L or raw.toLong(16)).toInt()
+        8 -> raw.toLong(16).toInt()
+        else -> error("Invalid color")
+    }
+    Color(argb)
+}.getOrDefault(fallback)
