@@ -1,23 +1,29 @@
 package com.nexus3d.diagnostics
 
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.test.core.app.ActivityScenario
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import androidx.test.platform.app.InstrumentationRegistry
-import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 
+@RunWith(AndroidJUnit4::class)
 class DiagnosticsStartupSmokeTest {
-    @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
-
     @Test
     fun mainActivityStartsInImmersiveFullscreen() {
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
-        val insets = ViewCompat.getRootWindowInsets(composeRule.activity.window.decorView)
-        assertNotNull(insets)
-        assertFalse(insets!!.isVisible(WindowInsetsCompat.Type.systemBars()))
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        SupabaseAccountRepository(context).signOut()
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            scenario.onActivity { activity ->
+                val insets = ViewCompat.getRootWindowInsets(activity.window.decorView)
+                assertNotNull(insets)
+                assertFalse(insets!!.isVisible(WindowInsetsCompat.Type.systemBars()))
+            }
+        }
     }
 }
