@@ -1,6 +1,8 @@
 package com.nexus3d.diagnostics
 
 import android.graphics.BitmapFactory
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -41,7 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,7 +60,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -111,12 +112,18 @@ fun OwnerAdminStatusbarPanel(
             .onFailure { error = it.message ?: "Unable to save cover photo." }
     }
 
-    LaunchedEffect(unlocked) {
+    DisposableEffect(unlocked) {
         if (unlocked) {
-            delay(5 * 60 * 1000L)
-            unlocked = false
-            expanded = false
-            message = "Owner Admin panel locked after inactivity."
+            val handler = Handler(Looper.getMainLooper())
+            val lockRunnable = Runnable {
+                unlocked = false
+                expanded = false
+                message = "Owner Admin panel locked after 5 minutes."
+            }
+            handler.postDelayed(lockRunnable, 5 * 60 * 1000L)
+            onDispose { handler.removeCallbacks(lockRunnable) }
+        } else {
+            onDispose { }
         }
     }
 
