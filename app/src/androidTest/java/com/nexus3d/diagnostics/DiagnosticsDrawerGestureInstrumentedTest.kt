@@ -93,6 +93,6 @@ class DiagnosticsDrawerGestureInstrumentedTest {
             up()
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Appearance & Settings").assertDoesNotExist()
+        composeRule.onAllNodesWithText("Appearance & Settings").assertCountEquals(0)
     }
 }
