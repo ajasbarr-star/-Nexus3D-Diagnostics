@@ -358,7 +358,8 @@ internal fun DiagnosticsHome(
 
 @Composable
 private fun DrawerSection(title:String,subtitle:String,expanded:Boolean,onToggle:()->Unit,content:@Composable ()->Unit) {
-    Card(Modifier.fillMaxWidth()) {
+    val appearance = LocalDiagnosticsAppearance.current
+    Card(Modifier.fillMaxWidth().border(appearance.borderWidth.coerceIn(0f, 4f).dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium)) {
         Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth().clickable(onClick=onToggle),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)) {
