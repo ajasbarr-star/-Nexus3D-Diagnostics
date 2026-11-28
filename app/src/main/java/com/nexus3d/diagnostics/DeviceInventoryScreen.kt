@@ -28,6 +28,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun DeviceInventoryScreen(
@@ -168,7 +171,7 @@ fun DeviceInventoryScreen(
                                                 Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                                     Text(event.title, style = MaterialTheme.typography.titleSmall)
                                                     Text("${event.source} • ${event.severity}", style = MaterialTheme.typography.labelSmall)
-                                                    Text(formatTimestamp(event.createdAtEpochMs), style = MaterialTheme.typography.labelSmall)
+                                                    Text(formatDeviceEventTimestamp(event.createdAtEpochMs), style = MaterialTheme.typography.labelSmall)
                                                 }
                                             }
                                         }
@@ -208,3 +211,6 @@ private fun InventoryCollapsePanel(
         }
     }
 }
+
+private fun formatDeviceEventTimestamp(epochMs: Long): String =
+    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(epochMs))
