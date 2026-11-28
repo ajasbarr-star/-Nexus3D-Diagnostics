@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -83,7 +84,7 @@ class DiagnosticsFeatureInstrumentedTest {
             }
         }
         composeRule.onNodeWithText("Gradient").performClick()
-        composeRule.onNodeWithText("APPLY").performClick()
+        composeRule.onNodeWithText("APPLY").performScrollTo().performClick()
         composeRule.waitForIdle()
 
         val result = applied.get()
