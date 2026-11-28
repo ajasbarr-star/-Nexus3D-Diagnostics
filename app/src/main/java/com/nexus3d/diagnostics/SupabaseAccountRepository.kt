@@ -193,7 +193,7 @@ class SupabaseAccountRepository(context: Context) {
             method = "POST",
             body = JSONObject().put("email", normalized)
         )
-        "If the Owner Admin account is eligible, a password recovery email has been sent to $OWNER_ADMIN_EMAIL."
+        "If the Owner Admin account is eligible, a password recovery email was requested for $OWNER_ADMIN_EMAIL. Check your inbox and spam folder."
     }
 
     suspend fun updatePassword(newPassword: String) = withContext(Dispatchers.IO) {
