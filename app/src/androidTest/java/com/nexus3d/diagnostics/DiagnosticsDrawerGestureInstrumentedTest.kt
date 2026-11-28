@@ -5,9 +5,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.fetchSemanticsNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -19,7 +20,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class DiagnosticsDrawerGestureInstrumentedTest {
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val composeRule = createComposeRule()
 
     private fun setDashboardContent() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -76,7 +77,7 @@ class DiagnosticsDrawerGestureInstrumentedTest {
     fun swipeInFromRightEdgeOpensRightDrawer() {
         setDashboardContent()
         composeRule.waitForIdle()
-        val rootWidth = composeRule.activity.window.decorView.width.toFloat()
+        val rootWidth = composeRule.onRoot().fetchSemanticsNode().size.width.toFloat()
         composeRule.onRoot().performTouchInput {
             val y = center.y
             down(Offset(rootWidth - 1f, y))
