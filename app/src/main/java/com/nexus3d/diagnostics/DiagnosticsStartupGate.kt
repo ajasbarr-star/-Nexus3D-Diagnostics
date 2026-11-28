@@ -384,3 +384,4 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
     }
 }
 }
+}
