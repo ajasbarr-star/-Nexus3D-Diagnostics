@@ -92,7 +92,7 @@ fun CloudAccountScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(if (inline) Modifier else Modifier.fillMaxSize())
-                .verticalScroll(rememberScrollState())
+                .then(if (inline) Modifier else Modifier.verticalScroll(rememberScrollState()))
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
