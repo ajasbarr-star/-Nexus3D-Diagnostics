@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,6 +14,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -32,16 +40,23 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Image
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-private enum class StartupStage { AUTH, CONSENT, SETUP_CODE, ADMIN_ID, DASHBOARD }
+private enum class StartupStage { AUTH, CONSENT, SETUP_CODE, ADMIN_ID, RESET_PASSWORD, DASHBOARD }
 
 @Composable
 fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAccountRepository) {
     var stage by remember { mutableStateOf(StartupStage.AUTH) }
     var registerMode by remember { mutableStateOf(false) }
-    var email by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("ajasbarr@gmail.com") }
+    var rememberLogin by remember { mutableStateOf(repository.isRememberLoginEnabled()) }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmNewPassword by remember { mutableStateOf("") }
+    var showSignOutConfirmation by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var setupCode by remember { mutableStateOf("") }
@@ -81,7 +96,13 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
 
     LaunchedEffect(Unit) {
         try {
-            if (repository.hasSession()) {
+            if (repository.isPasswordRecoveryPending()) {
+                if (repository.hasSession()) stage = StartupStage.RESET_PASSWORD
+                else {
+                    stage = StartupStage.AUTH
+                    error = "The recovery session is unavailable. Request a new password recovery email."
+                }
+            } else if (repository.hasSession()) {
                 verifyCurrentSession()
             } else {
                 stage = StartupStage.AUTH
@@ -139,6 +160,13 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                     Text("Only the verified, permanently registered Owner Admin can access the Central Receiver.")
                     OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Gmail address") }, singleLine = true)
                     OutlinedTextField(value = password, onValueChange = { password = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                    if (!registerMode) Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = rememberLogin, onCheckedChange = {
+                            rememberLogin = it
+                            repository.setRememberLogin(it)
+                        })
+                        Text("✔ REMEMBER MY LOGIN")
+                    }
                     if (registerMode) OutlinedTextField(value = confirmPassword, onValueChange = { confirmPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Confirm Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
                     Button(
                         enabled = !busy && email.trim().contains("@") && password.length >= 6 && (!registerMode || (confirmPassword == password && confirmPassword.isNotBlank())),
@@ -148,7 +176,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                             scope.launch {
                                 try {
                                     if (registerMode) {
-                                        message = repository.signUp(email, password)
+                                        message = repository.signUp(email, password, rememberLogin)
                                         if (repository.hasSession()) verifyCurrentSession()
                                         else {
                                             message = "Verification email sent. Open the link in Gmail, then return here and sign in."
@@ -157,7 +185,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                                             confirmPassword = ""
                                         }
                                     } else {
-                                        repository.signIn(email, password)
+                                        repository.signIn(email, password, rememberLogin)
                                         verifyCurrentSession()
                                     }
                                 } catch (e: Exception) {
@@ -166,10 +194,24 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                             }
                         }
                     ) { Text(if (registerMode) "Create Owner Admin Account" else "Sign In") }
+                    if (!registerMode) TextButton(
+                        enabled = !busy && email.trim().equals("ajasbarr@gmail.com", ignoreCase = true),
+                        onClick = {
+                            busy = true; error = ""; message = ""
+                            scope.launch {
+                                try {
+                                    message = repository.requestPasswordReset(email)
+                                } catch (e: Exception) {
+                                    error = e.message ?: "Unable to request password recovery."
+                                } finally { busy = false }
+                            }
+                        }
+                    ) { Text("RESET PASSWORD") }
                     TextButton(onClick = { registerMode = !registerMode; error = ""; message = ""; password = ""; confirmPassword = "" }, enabled = !busy) {
                         Text(if (registerMode) "Already registered? Sign in" else "First-time Owner Admin? Register")
                     }
                     Text("Registration is restricted by the server to the configured Owner Admin Gmail and the one-time setup code.", style = MaterialTheme.typography.bodySmall)
+                    if (!registerMode) Text("Password recovery email is sent only to the verified Owner Admin address.", style = MaterialTheme.typography.bodySmall)
                     if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary)
                     if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
                     if (busy) CircularProgressIndicator()
@@ -232,6 +274,49 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                     if (busy) CircularProgressIndicator()
                     if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
                 }
+                StartupStage.RESET_PASSWORD -> Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text("RESET OWNER ADMIN PASSWORD", style = MaterialTheme.typography.headlineSmall)
+                    Text("Verified recovery link received. Create a new password for ajasbarr@gmail.com.")
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("New password (10+ characters)") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = confirmNewPassword,
+                        onValueChange = { confirmNewPassword = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Confirm new password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true
+                    )
+                    Button(
+                        enabled = !busy && newPassword.length >= 10 && newPassword == confirmNewPassword,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            busy = true; error = ""; message = ""
+                            scope.launch {
+                                try {
+                                    repository.updatePassword(newPassword)
+                                    repository.signOut()
+                                    newPassword = ""; confirmNewPassword = ""
+                                    stage = StartupStage.AUTH
+                                    message = "Password updated. Sign in using your new password."
+                                } catch (e: Exception) {
+                                    error = e.message ?: "Unable to update password."
+                                } finally { busy = false }
+                            }
+                        }
+                    ) { Text("SAVE NEW PASSWORD") }
+                    if (busy) CircularProgressIndicator()
+                    if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+                }
                 StartupStage.ADMIN_ID -> Column(
                     Modifier.fillMaxSize().padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -239,28 +324,43 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                 ) {
                     Text("Owner Admin Registration Complete", style = MaterialTheme.typography.headlineSmall)
                     Text("Permanent Admin Unique ID", style = MaterialTheme.typography.titleMedium)
-                    Text(status?.adminId ?: "Unavailable", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(status?.adminId ?: "Unavailable", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                        IconButton(enabled = !status?.adminId.isNullOrBlank(), onClick = {
+                            status?.adminId?.let { clipboard.setText(AnnotatedString(it)); message = "Permanent Admin Unique ID copied." }
+                        }) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy Permanent Admin Unique ID") }
+                    }
                     Text("This ID belongs to the Diagnostics Owner Admin account and is separate from all Nexus3D Editor Device IDs.")
                     Button(enabled = status?.adminId?.isNotBlank() == true, onClick = { stage = StartupStage.DASHBOARD }) { Text("Continue to Main Dashboard") }
                 }
                 StartupStage.DASHBOARD -> Box(Modifier.fillMaxSize()) {
-                    DiagnosticsHome(database, repository, onSignOut = {
+                    DiagnosticsHome(database, repository, status, onSignOut = {
                         clearSessionSafely()
                         status = null
                         stage = StartupStage.AUTH
                         message = "Signed out securely."
                         error = ""
                     })
-                    TextButton(
+                    if (showSignOutConfirmation) AlertDialog(
+                        onDismissRequest = { showSignOutConfirmation = false },
+                        title = { Text("Sign out?") },
+                        text = { Text("Your current Diagnostics login session will be cleared. Owner Admin registration and Unique ID will remain unchanged.") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showSignOutConfirmation = false
+                                clearSessionSafely()
+                                status = null
+                                stage = StartupStage.AUTH
+                                message = "Signed out securely."
+                                error = ""
+                            }) { Text("Sign Out") }
+                        },
+                        dismissButton = { TextButton(onClick = { showSignOutConfirmation = false }) { Text("Cancel") } }
+                    )
+                    IconButton(
                         modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
-                        onClick = {
-                            clearSessionSafely()
-                            status = null
-                            stage = StartupStage.AUTH
-                            message = "Signed out securely."
-                            error = ""
-                        }
-                    ) { Text("Sign Out") }
+                        onClick = { showSignOutConfirmation = true }
+                    ) { Icon(Icons.Default.Logout, contentDescription = "Sign Out") }
                 }
             }
         }
