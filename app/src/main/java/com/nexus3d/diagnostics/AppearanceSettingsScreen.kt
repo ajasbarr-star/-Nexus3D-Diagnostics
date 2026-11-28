@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -156,7 +159,7 @@ fun AppearanceSettingsScreen(
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("FULL CUSTOMIZATION", style = MaterialTheme.typography.titleMedium)
         Text("Choose whether changes apply across the app or only to one screen.")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("global" to "All Screens", "home" to "Home", "drawer" to "Drawers", "reports" to "Reports", "devices" to "Devices", "admin" to "Admin").forEach { (key, label) ->
                 FilterChip(selected = scope == key, onClick = { restoreDraft(key) }, label = { Text(label) })
             }
@@ -192,7 +195,7 @@ fun AppearanceSettingsScreen(
                     OutlinedTextField(value = pair.first, onValueChange = pair.second, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("#RRGGBB") })
                 }
                 Column(Modifier.padding(top = 24.dp)) {
-                    Card(Modifier.height(42.dp).fillMaxWidth()) {
+                    Card(Modifier.height(42.dp).width(48.dp)) {
                         androidx.compose.foundation.layout.Box(
                             Modifier.background(parseAppearanceColor(pair.first, MaterialTheme.colorScheme.primary)).padding(10.dp)
                         ) { Text(" ", Modifier.padding(4.dp)) }
