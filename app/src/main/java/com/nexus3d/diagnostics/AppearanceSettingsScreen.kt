@@ -84,7 +84,7 @@ private fun parseAppearanceColor(value: String, fallback: Color): Color = runCat
 @Composable
 fun AppearanceSettingsScreen(
     prefs: SharedPreferences,
-    onApplied: (String, Color, Color, Color, Color, Color) -> Unit
+    onApplied: (String, String, Color, Color, Color, Color, Color) -> Unit
 ) {
     var scope by remember { mutableStateOf("global") }
     var draft by remember { mutableStateOf(loadAppearanceDraft(prefs, scope)) }
@@ -253,7 +253,7 @@ fun AppearanceSettingsScreen(
                 }
                 editor.remove("pending_background_image_uri")
                 editor.apply()
-                onApplied(theme, parseAppearanceColor(primary, Color(0xFF80CBC4)), parseAppearanceColor(background, Color(0xFF242629)), parseAppearanceColor(surface, Color(0xFF2D3034)), parseAppearanceColor(textColor, Color(0xFFE8EAED)), parseAppearanceColor(border, Color(0xFF60666D)))
+                onApplied(scope, theme, parseAppearanceColor(primary, Color(0xFF80CBC4)), parseAppearanceColor(background, Color(0xFF242629)), parseAppearanceColor(surface, Color(0xFF2D3034)), parseAppearanceColor(textColor, Color(0xFFE8EAED)), parseAppearanceColor(border, Color(0xFF60666D)))
                 message = "Appearance saved on this device."
             }) { Text("Apply") }
             OutlinedButton(onClick = { restoreDraft(scope); message = "Unapplied changes cancelled." }) { Text("Cancel") }
