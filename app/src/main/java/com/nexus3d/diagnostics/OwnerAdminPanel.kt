@@ -198,7 +198,7 @@ fun OwnerAdminStatusbarPanel(
                 Text("Set a PIN or Password before opening protected Owner Admin information.")
                 Button(onClick = { resetDialogFields(); dialog = OwnerAdminDialog.SETUP }) {
                     Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(scaledIconSize))
-                    Text(" SET PIN/PASS")
+                    Text("SET PIN/PASS")
                 }
             }
 
@@ -224,7 +224,7 @@ fun OwnerAdminStatusbarPanel(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton(onClick = { profilePicker.launch("image/*") }) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(scaledIconSize))
-                        Text(if (profilePath == null) " Add Picture" else " Change Picture")
+                        Text(if (profilePath == null) "Add Picture" else "Change Picture")
                     }
                     if (profilePath != null) IconButton(onClick = { store.removeImage("profile"); profilePath = null; profileScale = 1f }) {
                         Icon(Icons.Default.Delete, contentDescription = "Remove profile picture", modifier = Modifier.size(scaledIconSize))
@@ -238,7 +238,7 @@ fun OwnerAdminStatusbarPanel(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton(onClick = { coverPicker.launch("image/*") }) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(scaledIconSize))
-                        Text(if (coverPath == null) " Add Cover" else " Change Cover")
+                        Text(if (coverPath == null) "Add Cover" else "Change Cover")
                     }
                     if (coverPath != null) IconButton(onClick = { store.removeImage("cover"); coverPath = null; coverScale = 1f; coverOffsetX = 0f; coverOffsetY = 0f }) {
                         Icon(Icons.Default.Delete, contentDescription = "Remove cover photo", modifier = Modifier.size(scaledIconSize))
@@ -272,7 +272,7 @@ fun OwnerAdminStatusbarPanel(
                         dialog = OwnerAdminDialog.CHANGE
                     }) {
                         Icon(Icons.Default.LockReset, contentDescription = null, modifier = Modifier.size(scaledIconSize))
-                        Text(" RESET PIN/PASS")
+                        Text("RESET PIN/PASS")
                     }
                     IconButton(onClick = { unlocked = false; expanded = false }) {
                         Icon(Icons.Default.Lock, contentDescription = "Lock Owner Admin panel", modifier = Modifier.size(scaledIconSize))
