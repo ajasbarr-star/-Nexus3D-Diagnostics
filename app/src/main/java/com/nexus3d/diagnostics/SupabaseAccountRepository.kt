@@ -445,8 +445,9 @@ class SupabaseAccountRepository(context: Context) {
             JSONObject()
                 .put("access_token", accessToken)
                 .put("refresh_token", refreshToken)
-                .put("expires_in", expiresIn)
-        , forcePersist = callbackType == "recovery")
+                .put("expires_in", expiresIn),
+            forcePersist = callbackType == "recovery"
+        )
         return if (callbackType == "recovery") {
             "Password recovery verified. Return to Diagnostics to set a new password."
         } else {
