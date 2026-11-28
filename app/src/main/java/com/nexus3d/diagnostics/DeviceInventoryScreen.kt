@@ -1,5 +1,6 @@
 package com.nexus3d.diagnostics
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -106,8 +107,9 @@ fun DeviceInventoryScreen(
             modifier = if (inline) Modifier.heightIn(max = 420.dp) else Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(devices, key = { it.id }) { device ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+            items(devices, key = { it.recordId }) { device ->
+                val appearance = LocalDiagnosticsAppearance.current
+                Card(modifier = Modifier.fillMaxWidth().border(appearance.borderWidth.coerceIn(0f, 4f).dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium)) {
                     Column(
                         Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp)
