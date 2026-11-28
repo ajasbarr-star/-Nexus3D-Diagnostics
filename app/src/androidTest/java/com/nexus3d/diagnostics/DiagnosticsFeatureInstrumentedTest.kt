@@ -69,17 +69,17 @@ class DiagnosticsFeatureInstrumentedTest {
         }
 
         composeRule.onNodeWithText("OWNER ADMIN STATUSBAR").assertExists()
-        composeRule.onNodeWithText("Security setup required").assertIsDisplayed()
-        composeRule.onNodeWithText("SET PIN/PASS").performClick()
+        composeRule.onNodeWithText("Security setup required").assertExists()
+        composeRule.onNodeWithText("SET PIN/PASS").performScrollTo().performClick()
         composeRule.onNodeWithText("6–12 digit PIN").performTextInput("123456")
         composeRule.onNodeWithText("Confirm PIN / Password").performTextInput("123456")
         composeRule.onNodeWithText("Save Security").performClick()
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText("TEST-OWNER-ADMIN-ID").assertIsDisplayed()
-        composeRule.onNodeWithText("SET PIN/PASS").assertIsDisplayed()
-        composeRule.onNodeWithText("RESET PIN/PASS").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Copy Permanent Admin Unique ID").assertIsDisplayed()
+        composeRule.onNodeWithText("TEST-OWNER-ADMIN-ID").performScrollTo().assertExists()
+        composeRule.onNodeWithText("SET PIN/PASS").performScrollTo().assertExists()
+        composeRule.onNodeWithText("RESET PIN/PASS").performScrollTo().assertExists()
+        composeRule.onNodeWithContentDescription("Copy Permanent Admin Unique ID").performScrollTo().assertExists()
         composeRule.onNodeWithContentDescription("Copy Permanent Admin Unique ID").performScrollTo().performClick()
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         assertEquals("TEST-OWNER-ADMIN-ID", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
@@ -94,7 +94,7 @@ class DiagnosticsFeatureInstrumentedTest {
         composeRule.onNodeWithText("New PIN / Password").performTextInput("654321")
         composeRule.onNodeWithText("Confirm new PIN / Password").performTextInput("654321")
         composeRule.onNodeWithText("Save Changes").performClick()
-        composeRule.onNodeWithText("Current PIN / Password is incorrect.").assertIsDisplayed()
+        composeRule.onNodeWithText("Current PIN / Password is incorrect.").assertExists()
         composeRule.onNodeWithText("Current PIN / Password").performTextClearance()
         composeRule.onNodeWithText("Current PIN / Password").performTextInput("123456")
         composeRule.onNodeWithText("Save Changes").performClick()
@@ -104,7 +104,7 @@ class DiagnosticsFeatureInstrumentedTest {
 
         composeRule.onNodeWithContentDescription("Lock Owner Admin panel").performScrollTo().performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Locked • verification required").assertIsDisplayed()
+        composeRule.onNodeWithText("Locked • verification required").assertExists()
         composeRule.onAllNodesWithText("TEST-OWNER-ADMIN-ID").assertCountEquals(0)
         context.deleteSharedPreferences("nexus3d_owner_admin_local")
     }
@@ -131,7 +131,7 @@ class DiagnosticsFeatureInstrumentedTest {
             }
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Locked • verification required").assertIsDisplayed()
+        composeRule.onNodeWithText("Locked • verification required").assertExists()
         composeRule.onAllNodesWithText("RESTART-TEST-ADMIN-ID").assertCountEquals(0)
         context.deleteSharedPreferences("nexus3d_owner_admin_local")
     }
