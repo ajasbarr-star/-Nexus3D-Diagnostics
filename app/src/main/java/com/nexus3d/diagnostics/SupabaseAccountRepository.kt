@@ -436,8 +436,8 @@ class SupabaseAccountRepository(context: Context) {
 
         val callbackType = parameter("type")
         if (callbackType == "recovery") {
-            // Persist the one-time recovery session across the callback Activity hand-off.
-            setRememberLogin(true)
+            // Persist only this short-lived recovery session across the callback Activity hand-off.
+            // Do not change the user's Remember My Login preference.
             preferences.edit().putBoolean(PASSWORD_RECOVERY_PENDING, true).apply()
         }
         val expiresIn = parameter("expires_in")?.toLongOrNull()?.coerceAtLeast(60L) ?: 3600L
@@ -446,7 +446,7 @@ class SupabaseAccountRepository(context: Context) {
                 .put("access_token", accessToken)
                 .put("refresh_token", refreshToken)
                 .put("expires_in", expiresIn)
-        )
+        , forcePersist = callbackType == "recovery")
         return if (callbackType == "recovery") {
             "Password recovery verified. Return to Diagnostics to set a new password."
         } else {
@@ -454,13 +454,13 @@ class SupabaseAccountRepository(context: Context) {
         }
     }
 
-    private fun saveSessionIfPresent(json: JSONObject) {
+    private fun saveSessionIfPresent(json: JSONObject, forcePersist: Boolean = false) {
         val access = json.optString("access_token")
         val refresh = json.optString("refresh_token")
         if (access.isBlank() || refresh.isBlank()) return
         val expiresIn = json.optLong("expires_in", 3600L).coerceAtLeast(60L)
         val expiresAt = System.currentTimeMillis() + expiresIn * 1000L
-        if (isRememberLoginEnabled()) {
+        if (forcePersist || isRememberLoginEnabled()) {
             preferences.edit()
                 .putString(ACCESS, access)
                 .putString(REFRESH, refresh)
