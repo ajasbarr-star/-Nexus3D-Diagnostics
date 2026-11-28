@@ -141,8 +141,8 @@ internal fun DiagnosticsHome(
     var showClearConfirmation by remember { mutableStateOf(false) }
     var leftOpen by remember { mutableStateOf(false) }
     var rightOpen by remember { mutableStateOf(false) }
-    var leftExpanded by remember { mutableStateOf("Device Inventory List") }
-    var rightExpanded by remember { mutableStateOf("Appearance & Settings") }
+    var leftExpanded by remember { mutableStateOf("") }
+    var rightExpanded by remember { mutableStateOf("") }
 
     val filteredEvents = events.filter { e ->
         (searchText.isBlank() || e.title.contains(searchText,true) || e.details.contains(searchText,true) || e.source.contains(searchText,true)) &&
