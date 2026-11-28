@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,6 +60,10 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var rememberMe by remember { mutableStateOf(repository.shouldRememberSession()) }
+    var passwordResetMode by remember { mutableStateOf(false) }
+    var changePasswordMode by remember { mutableStateOf(false) }
     var setupCode by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<OwnerAdminStatus?>(null) }
     var busy by remember { mutableStateOf(true) }
@@ -121,10 +127,16 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
 
     LaunchedEffect(Unit) {
         try {
-            if (repository.hasSession()) {
-                verifyCurrentSession()
-            } else {
-                stage = StartupStage.AUTH
+            when {
+                repository.hasSession() && repository.isPasswordRecoveryPending() -> {
+                    passwordResetMode = true
+                    stage = StartupStage.AUTH
+                }
+                repository.hasSession() && repository.shouldRememberSession() -> verifyCurrentSession()
+                else -> {
+                    if (repository.hasSession()) clearSessionSafely()
+                    stage = StartupStage.AUTH
+                }
             }
         } catch (e: Exception) {
             clearSessionSafely()
@@ -201,39 +213,106 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                         }
                     }
                     Text("Only the verified, permanently registered Owner Admin can access the Central Receiver.")
-                    OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Gmail address") }, singleLine = true)
-                    OutlinedTextField(value = password, onValueChange = { password = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
-                    if (registerMode) OutlinedTextField(value = confirmPassword, onValueChange = { confirmPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Confirm Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
-                    Button(
-                        enabled = !busy && email.trim().contains("@") && password.length >= 6 && (!registerMode || (confirmPassword == password && confirmPassword.isNotBlank())),
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            busy = true; error = ""; message = ""
-                            scope.launch {
-                                try {
-                                    if (registerMode) {
-                                        message = repository.signUp(email, password)
-                                        if (repository.hasSession()) verifyCurrentSession()
-                                        else {
-                                            message = "Verification email sent. Open the link in Gmail, then return here and sign in."
-                                            registerMode = false
-                                            password = ""
-                                            confirmPassword = ""
-                                        }
-                                    } else {
-                                        repository.signIn(email, password)
+                    if (passwordResetMode) {
+                        Text("RESET PASSWORD", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                        Text("Enter a new password for your verified Owner Admin account.")
+                        OutlinedTextField(value = newPassword, onValueChange = { newPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("New Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                        OutlinedTextField(value = confirmPassword, onValueChange = { confirmPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Confirm New Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                        Button(
+                            enabled = !busy && newPassword.length >= 6 && newPassword == confirmPassword,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                busy = true; error = ""; message = ""
+                                scope.launch {
+                                    try {
+                                        repository.updatePassword(newPassword)
+                                        passwordResetMode = false
+                                        newPassword = ""; confirmPassword = ""
+                                        message = "Password changed successfully. Verifying Owner Admin access…"
                                         verifyCurrentSession()
-                                    }
-                                } catch (e: Exception) {
-                                    error = e.message ?: "Authentication failed."
-                                } finally { busy = false }
+                                    } catch (e: Exception) {
+                                        error = e.message ?: "Unable to update password."
+                                    } finally { busy = false }
+                                }
+                            }
+                        ) { Text("Save New Password") }
+                    } else {
+                        OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Gmail address") }, singleLine = true)
+                        OutlinedTextField(value = password, onValueChange = { password = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                        if (registerMode) {
+                            OutlinedTextField(value = confirmPassword, onValueChange = { confirmPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Confirm Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = rememberMe, onCheckedChange = { rememberMe = it })
+                                Text("✓ REMEMBER ME")
                             }
                         }
-                    ) { Text(if (registerMode) "Create Owner Admin Account" else "Sign In") }
-                    TextButton(onClick = { registerMode = !registerMode; error = ""; message = ""; password = ""; confirmPassword = "" }, enabled = !busy) {
-                        Text(if (registerMode) "Already registered? Sign in" else "First-time Owner Admin? Register")
+                        Button(
+                            enabled = !busy && email.trim().contains("@") && password.length >= 6 && (!registerMode || (confirmPassword == password && confirmPassword.isNotBlank())),
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                busy = true; error = ""; message = ""
+                                scope.launch {
+                                    try {
+                                        if (registerMode) {
+                                            message = repository.signUp(email, password)
+                                            if (repository.hasSession()) verifyCurrentSession()
+                                            else {
+                                                message = "Verification email sent. Open the link in Gmail, then return here and sign in."
+                                                registerMode = false
+                                                password = ""
+                                                confirmPassword = ""
+                                            }
+                                        } else {
+                                            repository.signIn(email, password, rememberMe)
+                                            verifyCurrentSession()
+                                        }
+                                    } catch (e: Exception) {
+                                        error = e.message ?: "Authentication failed."
+                                    } finally { busy = false }
+                                }
+                            }
+                        ) { Text(if (registerMode) "Create Owner Admin Account" else "Sign In") }
+                        if (!registerMode) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(enabled = !busy && email.trim().contains("@"), onClick = {
+                                    busy = true; error = ""; message = ""
+                                    scope.launch {
+                                        try { message = repository.requestPasswordReset(email) }
+                                        catch (e: Exception) { error = e.message ?: "Unable to request password reset." }
+                                        finally { busy = false }
+                                    }
+                                }) { Text("RESET PASSWORD") }
+                                TextButton(enabled = !busy && email.trim().contains("@") && password.length >= 6, onClick = {
+                                    changePasswordMode = !changePasswordMode
+                                    newPassword = ""; confirmPassword = ""; error = ""; message = ""
+                                }) { Text(if (changePasswordMode) "CANCEL CHANGE" else "CHANGE PASSWORD") }
+                            }
+                            if (changePasswordMode) {
+                                Text("Confirm your current password above, then choose a new password.")
+                                OutlinedTextField(value = newPassword, onValueChange = { newPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("New Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                                OutlinedTextField(value = confirmPassword, onValueChange = { confirmPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Confirm New Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                                Button(enabled = !busy && newPassword.length >= 6 && newPassword == confirmPassword, modifier = Modifier.fillMaxWidth(), onClick = {
+                                    busy = true; error = ""; message = ""
+                                    scope.launch {
+                                        try {
+                                            repository.signIn(email, password, rememberMe)
+                                            repository.updatePassword(newPassword)
+                                            changePasswordMode = false
+                                            newPassword = ""; confirmPassword = ""; password = ""
+                                            message = "Password changed successfully. Please sign in with your new password."
+                                            repository.signOut()
+                                        } catch (e: Exception) { error = e.message ?: "Unable to change password." }
+                                        finally { busy = false }
+                                    }
+                                }) { Text("UPDATE PASSWORD") }
+                            }
+                        }
+                        TextButton(onClick = { registerMode = !registerMode; error = ""; message = ""; password = ""; confirmPassword = ""; changePasswordMode = false }, enabled = !busy) {
+                            Text(if (registerMode) "Already registered? Sign in" else "First-time Owner Admin? Register")
+                        }
+                        Text("Registration is restricted by the server to the configured Owner Admin Gmail and the one-time setup code.", style = MaterialTheme.typography.bodySmall)
                     }
-                    Text("Registration is restricted by the server to the configured Owner Admin Gmail and the one-time setup code.", style = MaterialTheme.typography.bodySmall)
                     if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary)
                     if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
                     if (busy) CircularProgressIndicator()
