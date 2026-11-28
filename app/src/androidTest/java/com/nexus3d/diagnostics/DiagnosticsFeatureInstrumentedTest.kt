@@ -4,7 +4,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -120,7 +121,7 @@ class DiagnosticsFeatureInstrumentedTest {
             }
         }
         composeRule.onNodeWithText("Locked • verification required").assertIsDisplayed()
-        composeRule.onNodeWithText("TEST-OWNER-ADMIN-ID").assertDoesNotExist()
+        composeRule.onAllNodesWithText("TEST-OWNER-ADMIN-ID").assertCountEquals(0)
         context.deleteSharedPreferences("nexus3d_owner_admin_local")
     }
 
