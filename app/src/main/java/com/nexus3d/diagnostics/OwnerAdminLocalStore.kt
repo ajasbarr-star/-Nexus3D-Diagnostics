@@ -103,7 +103,7 @@ class OwnerAdminLocalStore(private val context: Context) {
             "image/webp" -> "webp"
             else -> "jpg"
         }
-        val target = File(folder, "$slot.$extension")
+        val target = File(folder, "$slot-${System.currentTimeMillis()}.$extension")
         context.contentResolver.openInputStream(uri).use { input ->
             requireNotNull(input) { "Unable to read the selected image." }
             target.outputStream().use { output ->
@@ -119,6 +119,7 @@ class OwnerAdminLocalStore(private val context: Context) {
             }
         }
         val key = if (slot == "profile") PROFILE else COVER
+        preferences.getString(key, null)?.takeIf { it != target.absolutePath }?.let { File(it).delete() }
         preferences.edit().putString(key, target.absolutePath).apply()
         return target.absolutePath
     }
