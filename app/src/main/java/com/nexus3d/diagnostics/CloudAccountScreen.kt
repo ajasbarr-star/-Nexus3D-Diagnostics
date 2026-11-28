@@ -13,6 +13,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -296,7 +300,7 @@ fun CloudAccountScreen(
                     }
                 }
 
-                OutlinedButton(
+                IconButton(
                     enabled = !busy,
                     onClick = {
                         repository.signOut()
@@ -306,7 +310,7 @@ fun CloudAccountScreen(
                         message = "Signed out."
                         onSignOut()
                     }
-                ) { Text("Sign Out") }
+                ) { Icon(Icons.Default.Logout, contentDescription = "Sign Out") }
             }
 
             if (busy) CircularProgressIndicator()
