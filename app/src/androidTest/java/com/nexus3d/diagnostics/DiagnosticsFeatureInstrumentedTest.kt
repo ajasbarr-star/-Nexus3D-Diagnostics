@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextClearance
@@ -35,6 +36,19 @@ class DiagnosticsFeatureInstrumentedTest {
     fun loginPanelShowsRememberAndPasswordRecoveryControls() {
         composeRule.onNodeWithText("REMEMBER MY LOGIN").assertIsDisplayed()
         composeRule.onNodeWithText("RESET PASSWORD").assertIsDisplayed()
+    }
+
+    @Test
+    fun rememberMyLoginCheckboxTogglesEncryptedPreference() {
+        val repository = SupabaseAccountRepository(context)
+        if (repository.isRememberLoginEnabled()) {
+            composeRule.onNodeWithTag("rememberMyLoginCheckbox").performClick()
+        }
+        assertFalse(repository.isRememberLoginEnabled())
+        composeRule.onNodeWithTag("rememberMyLoginCheckbox").performClick()
+        assertTrue(repository.isRememberLoginEnabled())
+        composeRule.onNodeWithTag("rememberMyLoginCheckbox").performClick()
+        assertFalse(repository.isRememberLoginEnabled())
     }
 
     @Test
