@@ -55,7 +55,7 @@ class DiagnosticsFeatureInstrumentedTest {
 
         composeRule.onNodeWithText("OWNER ADMIN STATUSBAR").assertIsDisplayed()
         composeRule.onNodeWithText("Security setup required").assertIsDisplayed()
-        composeRule.onNodeWithText("Set PIN / Password").performClick()
+        composeRule.onNodeWithText("SET PIN/PASS").performClick()
         composeRule.onNodeWithText("6–12 digit PIN").performTextInput("123456")
         composeRule.onNodeWithText("Confirm PIN / Password").performTextInput("123456")
         composeRule.onNodeWithText("Save Security").performClick()
