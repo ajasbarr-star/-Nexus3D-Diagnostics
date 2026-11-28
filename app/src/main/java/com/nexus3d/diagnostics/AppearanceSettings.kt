@@ -258,7 +258,12 @@ fun AppearanceSettingsPanel(
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             runCatching { saveAppearanceImage(context, uri) }
-                .onSuccess { draft = draft.copy(backgroundImagePath = it, backgroundStyle = "Image") }
+                .onSuccess { newPath ->
+                    if (draft.backgroundImagePath != settings.backgroundImagePath) {
+                        draft.backgroundImagePath?.let { File(it).delete() }
+                    }
+                    draft = draft.copy(backgroundImagePath = newPath, backgroundStyle = "Image")
+                }
         }
     }
 
@@ -297,7 +302,6 @@ fun AppearanceSettingsPanel(
             OutlinedButton(onClick = { imagePicker.launch("image/*") }) { Text("ADD / CHANGE CUSTOM BACKGROUND") }
             if (draft.backgroundImagePath != null) {
                 OutlinedButton(onClick = {
-                    draft.backgroundImagePath?.let { File(it).delete() }
                     draft = draft.copy(backgroundImagePath = null, backgroundStyle = "Solid")
                 }) { Text("REMOVE BACKGROUND IMAGE") }
                 AppearanceSlider("Image Scale", draft.backgroundScale, 1f..2.5f) { draft = draft.copy(backgroundScale = it) }
@@ -349,9 +353,23 @@ fun AppearanceSettingsPanel(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onApply(draft) }) { Text("APPLY") }
-            OutlinedButton(onClick = { draft = settings }) { Text("CANCEL") }
+            Button(onClick = {
+                if (settings.backgroundImagePath != draft.backgroundImagePath) {
+                    settings.backgroundImagePath?.let { File(it).delete() }
+                }
+                onApply(draft)
+            }) { Text("APPLY") }
             OutlinedButton(onClick = {
+                if (draft.backgroundImagePath != settings.backgroundImagePath) {
+                    draft.backgroundImagePath?.let { File(it).delete() }
+                }
+                draft = settings
+            }) { Text("CANCEL") }
+            OutlinedButton(onClick = {
+                settings.backgroundImagePath?.let { File(it).delete() }
+                if (draft.backgroundImagePath != settings.backgroundImagePath) {
+                    draft.backgroundImagePath?.let { File(it).delete() }
+                }
                 draft = DiagnosticsAppearance.Default
                 onApply(DiagnosticsAppearance.Default)
             }) { Text("RESET TO DEFAULT") }
@@ -407,7 +425,7 @@ private fun saveAppearanceImage(context: Context, uri: Uri): String {
         "image/webp" -> "webp"
         else -> "jpg"
     }
-    val target = File(folder, "custom_background.$extension")
+    val target = File(folder, "custom_background-${System.currentTimeMillis()}.$extension")
     context.contentResolver.openInputStream(uri).use { input ->
         requireNotNull(input) { "Unable to read selected image." }
         target.outputStream().use { output ->
