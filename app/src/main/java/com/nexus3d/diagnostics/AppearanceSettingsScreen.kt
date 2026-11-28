@@ -165,7 +165,7 @@ fun AppearanceSettingsScreen(
             }
         }
         Text("THEME PRESETS", style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("Dark Gray", "Graphite", "Midnight", "Deep Navy").forEach { preset ->
                 FilterChip(selected = theme == preset, onClick = {
                     theme = preset
