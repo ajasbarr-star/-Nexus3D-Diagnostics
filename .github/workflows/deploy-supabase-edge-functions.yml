@@ -37,10 +37,15 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
           NEXUS3D_AUTO_ENROLL_WORKSPACE_ID: ${{ secrets.NEXUS3D_AUTO_ENROLL_WORKSPACE_ID }}
+          NEXUS3D_OWNER_ADMIN_EMAIL: ${{ secrets.NEXUS3D_OWNER_ADMIN_EMAIL }}
+          NEXUS3D_ADMIN_SETUP_CODE_SHA256: ${{ secrets.NEXUS3D_ADMIN_SETUP_CODE_SHA256 }}
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::Missing SUPABASE_ACCESS_TOKEN secret"; exit 1; }
           test -n "$SUPABASE_PROJECT_ID" || { echo "::error::Missing SUPABASE_PROJECT_ID secret"; exit 1; }
           test -n "$NEXUS3D_AUTO_ENROLL_WORKSPACE_ID" || { echo "::error::Missing NEXUS3D_AUTO_ENROLL_WORKSPACE_ID environment secret"; exit 1; }
+          test -n "$NEXUS3D_OWNER_ADMIN_EMAIL" || { echo "::error::Missing NEXUS3D_OWNER_ADMIN_EMAIL environment secret"; exit 1; }
+          [[ "$NEXUS3D_OWNER_ADMIN_EMAIL" =~ ^[^@[:space:]]+@gmail\.com$ ]] || { echo "::error::Owner Admin email must be a Gmail address"; exit 1; }
+          [[ "$NEXUS3D_ADMIN_SETUP_CODE_SHA256" =~ ^[a-fA-F0-9]{64}$ ]] || { echo "::error::Admin Setup Code secret must be a SHA-256 hex digest"; exit 1; }
           [[ "$NEXUS3D_AUTO_ENROLL_WORKSPACE_ID" =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "::error::Workspace ID is not a UUID"; exit 1; }
           test "$SUPABASE_PROJECT_ID" = "rupftghvjmalntjoesnv" || { echo "::error::Project ID does not match the approved Nexus3D-Diagnostics project"; exit 1; }
 
@@ -50,6 +55,15 @@ jobs:
           NEXUS3D_AUTO_ENROLL_WORKSPACE_ID: ${{ secrets.NEXUS3D_AUTO_ENROLL_WORKSPACE_ID }}
         run: |
           supabase secrets set "NEXUS3D_AUTO_ENROLL_WORKSPACE_ID=$NEXUS3D_AUTO_ENROLL_WORKSPACE_ID" --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
+
+
+      - name: Configure Owner Admin bootstrap secrets
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          NEXUS3D_OWNER_ADMIN_EMAIL: ${{ secrets.NEXUS3D_OWNER_ADMIN_EMAIL }}
+          NEXUS3D_ADMIN_SETUP_CODE_SHA256: ${{ secrets.NEXUS3D_ADMIN_SETUP_CODE_SHA256 }}
+        run: |
+          supabase secrets set "NEXUS3D_OWNER_ADMIN_EMAIL=$NEXUS3D_OWNER_ADMIN_EMAIL" "NEXUS3D_ADMIN_SETUP_CODE_SHA256=$NEXUS3D_ADMIN_SETUP_CODE_SHA256" --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
 
       - name: Link approved Supabase project
         env:
@@ -68,6 +82,11 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase functions deploy create-enrollment-code --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
+
+      - name: Deploy owner-admin
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy owner-admin --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --yes
 
       - name: Deploy register-device
         env:

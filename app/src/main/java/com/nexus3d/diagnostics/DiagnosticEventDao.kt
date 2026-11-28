@@ -2,16 +2,23 @@ package com.nexus3d.diagnostics
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DiagnosticEventDao {
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(event: DiagnosticEvent): Long
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(events: List<DiagnosticEvent>): List<Long>
+
+    suspend fun insertIfAbsent(event: DiagnosticEvent): Boolean =
+        insert(event) != -1L
+
+    suspend fun insertAllIfAbsent(events: List<DiagnosticEvent>): Int =
+        insertAll(events).count { it != -1L }
 
     @Query("SELECT * FROM diagnostic_events ORDER BY createdAtEpochMs DESC")
     fun observeAll(): Flow<List<DiagnosticEvent>>

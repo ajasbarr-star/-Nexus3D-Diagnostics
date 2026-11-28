@@ -1,5 +1,6 @@
 
 name: Nexus3D Diagnostics Android APK
+# This repair branch runs the same signed APK validation used for release candidates.
 
 on:
   push:
@@ -8,6 +9,17 @@ on:
       - feature/nexus3d-editor-diagnostics-bridge
       - feature/nd-supabase-multidevice-phase1
       - feature/automatic-device-release-beta-management
+      - repair/accurate-apk-connection-status
+      - repair/diagnostics-security-hardening-20261128
+      - repair/ipc-migration-consent
+  pull_request:
+    branches:
+      - feature/automatic-device-release-beta-management
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - '*.gradle*'
+      - '.github/workflows/android.yml'
   workflow_dispatch:
 
 concurrency:
@@ -75,22 +87,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "$GITHUB_REF_NAME" = "feature/automatic-device-release-beta-management" ]; then
-            BUILD_NUMBER="$GITHUB_RUN_NUMBER"
-          else
-            EXISTING_TAG="$(git tag --points-at HEAD | grep -E '^diagnostics-build-[0-9]+$' | sort -V | tail -n 1 || true)"
-            if [ -n "$EXISTING_TAG" ]; then
-              BUILD_NUMBER="$(printf '%s' "$EXISTING_TAG" | sed 's/^diagnostics-build-//')"
-            else
-              LAST_TAG="$(git tag -l 'diagnostics-build-*' | grep -E '^diagnostics-build-[0-9]+$' | sort -V | tail -n 1 || true)"
-              if [ -n "$LAST_TAG" ]; then
-                LAST_NUMBER="$(printf '%s' "$LAST_TAG" | sed 's/^diagnostics-build-//')"
-                BUILD_NUMBER=$((LAST_NUMBER + 1))
-              else
-                BUILD_NUMBER=1
-              fi
-            fi
-          fi
+          BUILD_NUMBER="$GITHUB_RUN_NUMBER"
           VERSION_NAME="$(printf '1.0.%02d' "$BUILD_NUMBER")"
           STEM="$(printf 'Nexus3D _Diagnostics_Build%s_v%s' "$BUILD_NUMBER" "$VERSION_NAME")"
           echo "number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
@@ -102,6 +99,31 @@ jobs:
         env:
           BUILD_NUMBER: ${{ github.run_number }}
         run: gradle :app:testDebugUnitTest -PdiagnosticsBuildNumber="$BUILD_NUMBER"
+
+      - name: Enable Android Emulator hardware acceleration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod a+rw /dev/kvm
+          fi
+
+          if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+            echo "KVM is available to the runner; Android Emulator will use hardware acceleration."
+          else
+            echo "::warning::KVM is unavailable. Enabling the Android Emulator 37+ software-emulation opt-in."
+            echo "ANDROID_I_WANT_MY_TCG=yes" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run Android 13 cold-start and Owner Admin panel smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        with:
+          api-level: 33
+          arch: x86_64
+          emulator-boot-timeout: 900
+          script: gradle :app:connectedDebugAndroidTest -PdiagnosticsBuildNumber="$BUILD_NUMBER"
 
       - name: Build signed Test APK
         shell: bash
@@ -142,7 +164,7 @@ jobs:
           echo "apk=$APK" >> "$GITHUB_OUTPUT"
           echo "APK checks passed: $PACKAGE_INFO $VERSION_INFO ($VERSION_CODE)"
 
-      - name: Package APK with requested filename
+      - name: Prepare standalone APK artifact (no nested ZIP)
         id: package
         shell: bash
         env:
@@ -152,34 +174,21 @@ jobs:
           set -euo pipefail
 
           mkdir -p dist
-
           APK_NAME="${STEM}.apk"
-          ZIP_NAME="${STEM}.zip"
-
           cp "$APK_SOURCE" "dist/$APK_NAME"
-          (cd dist && zip -q "$ZIP_NAME" "$APK_NAME")
-
           test -s "dist/$APK_NAME"
-          test -s "dist/$ZIP_NAME"
-
-          unzip -l "dist/$ZIP_NAME"
-          unzip -t "dist/$ZIP_NAME"
-
           echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Upload named ZIP and standalone APK
+      - name: Upload standalone APK only
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.package.outputs.zip_name }}
-          path: |
-            dist/${{ steps.package.outputs.zip_name }}
-            dist/${{ steps.package.outputs.apk_name }}
+          name: ${{ steps.package.outputs.apk_name }}
+          path: dist/${{ steps.package.outputs.apk_name }}
           if-no-files-found: error
           retention-days: 30
 
       - name: Commit successful build tag
-        if: success() && github.ref_name != 'feature/automatic-device-release-beta-management'
+        if: success() && github.event_name != 'pull_request' && github.ref_name == 'feature/automatic-device-release-beta-management'
         shell: bash
         env:
           BUILD_TAG: ${{ steps.build_meta.outputs.tag }}

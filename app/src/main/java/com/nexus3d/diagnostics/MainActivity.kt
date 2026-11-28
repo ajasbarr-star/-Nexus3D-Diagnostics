@@ -2,10 +2,13 @@
 package com.nexus3d.diagnostics
 
 import android.os.Bundle
+import android.net.Uri
+import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
@@ -50,6 +53,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
@@ -71,41 +81,70 @@ class MainActivity : ComponentActivity() {
             applicationContext,
             DiagnosticsDatabase::class.java,
             "nexus3d-diagnostics.db"
-        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2).build()
+        ).addMigrations(DiagnosticsDatabase.MIGRATION_1_2, DiagnosticsDatabase.MIGRATION_2_3).build()
 
         setContent {
-            DiagnosticsHome(database, cloudAccountRepository)
+            DiagnosticsStartupGate(database, cloudAccountRepository)
         }
     }
 }
 
 private enum class DiagnosticsScreen {
-    HOME, EVENTS, RDS_LOGCAT, RIT_TRACE, EVENT_DETAILS, CLOUD_ACCOUNT, DEVICE_INVENTORY, ZIP_RECORDS
+    HOME, EVENTS, RDS_LOGCAT, RIT_TRACE, EVENT_DETAILS, DEVICE_INVENTORY, ZIP_RECORDS
 }
 
 @Composable
-private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository) {
+internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepository: SupabaseAccountRepository, onSignOut: () -> Unit) {
     val context = LocalContext.current
     val events by database.eventDao().observeAll().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("nexus3d_diagnostics_appearance", 0) }
-    var themeName by remember { mutableStateOf(prefs.getString("background_theme", "Dark Gray") ?: "Dark Gray") }
     var screen by remember { mutableStateOf(DiagnosticsScreen.HOME) }
-    var selectedEvent by remember { mutableStateOf<DiagnosticEvent?>(null) }
+    var leftOpen by remember { mutableStateOf(false) }
+    var rightOpen by remember { mutableStateOf(false) }
+    var leftExpanded by remember { mutableStateOf("Device Inventory") }
+    val appearanceScope = when {
+        leftOpen && leftExpanded == "Device Inventory" -> "devices"
+        leftOpen && leftExpanded == "Admin Profile" -> "admin"
+        leftOpen && leftExpanded == "GLOBAL REPORTS" -> "reports"
+        rightOpen -> "drawer"
+        screen == DiagnosticsScreen.EVENTS || screen == DiagnosticsScreen.RDS_LOGCAT || screen == DiagnosticsScreen.RIT_TRACE || screen == DiagnosticsScreen.EVENT_DETAILS -> "reports"
+        screen == DiagnosticsScreen.DEVICE_INVENTORY -> "devices"
+        else -> "home"
+    }
+    var appearanceRefresh by remember { mutableStateOf(0) }
+    val themeName = prefs.getString("${appearanceScope}_background_theme", prefs.getString("background_theme", "Dark Gray")) ?: "Dark Gray"
+    val primaryColor = parseHexColor(prefs.getString("${appearanceScope}_primary_hex", prefs.getString("primary_hex", "#80CBC4")), Color(0xFF80CBC4))
+    val buttonColor = parseHexColor(prefs.getString("${appearanceScope}_button_hex", prefs.getString("button_hex", "#80CBC4")), Color(0xFF80CBC4))
+    val iconColor = parseHexColor(prefs.getString("${appearanceScope}_icon_hex", prefs.getString("icon_hex", "#80CBC4")), Color(0xFF80CBC4))
+    val backgroundColor = parseHexColor(prefs.getString("${appearanceScope}_background_hex", prefs.getString("background_hex", "#242629")), Color(0xFF242629))
+    val surfaceColor = parseHexColor(prefs.getString("${appearanceScope}_surface_hex", prefs.getString("surface_hex", "#2D3034")), Color(0xFF2D3034))
+    val textColor = parseHexColor(prefs.getString("${appearanceScope}_text_hex", prefs.getString("text_hex", "#E8EAED")), Color(0xFFE8EAED))
+    val borderColor = parseHexColor(prefs.getString("${appearanceScope}_border_hex", prefs.getString("border_hex", "#60666D")), Color(0xFF60666D))
+    val panelOpacity = prefs.getFloat("${appearanceScope}_panel_opacity", prefs.getFloat("panel_opacity", 1f)).coerceIn(0.25f, 1f)
+    val backgroundBlur = prefs.getFloat("${appearanceScope}_blur", prefs.getFloat("blur", 0f)).coerceIn(0f, 24f)
+    val backgroundBrightness = prefs.getFloat("${appearanceScope}_brightness", prefs.getFloat("brightness", 1f)).coerceIn(0.4f, 1.5f)
+    val gradientEnabled = prefs.getBoolean("${appearanceScope}_gradient_enabled", prefs.getBoolean("gradient_enabled", false))
+    val gradientEnd = parseHexColor(prefs.getString("${appearanceScope}_gradient_end_hex", prefs.getString("gradient_end_hex", "#101923")), Color(0xFF101923))
+    val backgroundImageUri = prefs.getString("${appearanceScope}_background_image_uri", prefs.getString("background_image_uri", "")) ?: ""
+        var selectedEvent by remember { mutableStateOf<DiagnosticEvent?>(null) }
     var searchText by remember { mutableStateOf("") }
     var severityFilter by remember { mutableStateOf("ALL") }
     var showClearConfirmation by remember { mutableStateOf(false) }
-    var leftOpen by remember { mutableStateOf(false) }
-    var rightOpen by remember { mutableStateOf(false) }
-    var leftExpanded by remember { mutableStateOf("Device Inventory List") }
     var rightExpanded by remember { mutableStateOf("Appearance & Settings") }
+    var customAppearanceExpanded by remember { mutableStateOf(true) }
 
-    val colors = when (themeName) {
-        "Graphite" -> darkColorScheme(primary=Color(0xFFB8C4D0), secondary=Color(0xFF9FAAB5), background=Color(0xFF202326), surface=Color(0xFF292D31), surfaceVariant=Color(0xFF373D42), onSurface=Color(0xFFF0F1F2), onBackground=Color(0xFFF0F1F2), outline=Color(0xFF596168))
-        "Midnight" -> darkColorScheme(primary=Color(0xFF8AB4F8), secondary=Color(0xFF9AAFCB), background=Color(0xFF080D16), surface=Color(0xFF101827), surfaceVariant=Color(0xFF1B2638), onSurface=Color(0xFFE7EDF7), onBackground=Color(0xFFE7EDF7), outline=Color(0xFF42516A))
-        "Deep Navy" -> darkColorScheme(primary=Color(0xFF70D6E8), secondary=Color(0xFF9BB9D2), background=Color(0xFF101923), surface=Color(0xFF172635), surfaceVariant=Color(0xFF223747), onSurface=Color(0xFFE5F1F5), onBackground=Color(0xFFE5F1F5), outline=Color(0xFF496274))
-        else -> darkColorScheme(primary=Color(0xFF80CBC4), secondary=Color(0xFF9EADB5), background=Color(0xFF242629), surface=Color(0xFF2D3034), surfaceVariant=Color(0xFF3A3E43), onSurface=Color(0xFFE8EAED), onBackground=Color(0xFFE8EAED), outline=Color(0xFF60666D))
-    }
+    val colors = darkColorScheme(
+        primary = buttonColor,
+        secondary = primaryColor,
+        tertiary = iconColor,
+        background = backgroundColor,
+        surface = surfaceColor.copy(alpha = panelOpacity),
+        surfaceVariant = surfaceColor.copy(alpha = 0.92f),
+        onSurface = textColor,
+        onBackground = textColor,
+        outline = borderColor
+    )
     val filteredEvents = events.filter { e ->
         (searchText.isBlank() || e.title.contains(searchText,true) || e.details.contains(searchText,true) || e.source.contains(searchText,true)) &&
         when (severityFilter) {
@@ -126,7 +165,7 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
     }
 
     MaterialTheme(colorScheme=colors) {
-        Surface(Modifier.fillMaxSize(), color=MaterialTheme.colorScheme.background) {
+        Surface(Modifier.fillMaxSize(), color=Color.Transparent) {
             if (showClearConfirmation) AlertDialog(
                 onDismissRequest={showClearConfirmation=false},
                 title={Text("Clear all diagnostic events?")},
@@ -134,7 +173,30 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                 confirmButton={TextButton(onClick={showClearConfirmation=false; scope.launch { database.eventDao().clearAll() }}) { Text("Clear all") }},
                 dismissButton={TextButton(onClick={showClearConfirmation=false}) { Text("Cancel") }}
             )
-            Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier.fillMaxSize().background(
+                    if (gradientEnabled) Brush.linearGradient(listOf(backgroundColor, gradientEnd))
+                    else androidx.compose.ui.graphics.SolidColor(backgroundColor)
+                )
+            ) {
+                val customBackgroundBitmap = remember(backgroundImageUri, appearanceRefresh) {
+                    if (backgroundImageUri.isBlank()) null else runCatching {
+                        context.contentResolver.openInputStream(Uri.parse(backgroundImageUri))?.use { stream ->
+                            BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                        }
+                    }.getOrNull()
+                }
+                if (customBackgroundBitmap != null) {
+                    Image(
+                        bitmap = customBackgroundBitmap,
+                        contentDescription = "Custom Diagnostics background",
+                        modifier = Modifier.fillMaxSize().blur(backgroundBlur.dp),
+                        colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply {
+                            setToScale(backgroundBrightness, backgroundBrightness, backgroundBrightness, 1f)
+                        }),
+                        contentScale = ContentScale.Crop
+                    )
+                }
                 if (screen == DiagnosticsScreen.HOME) {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement=Arrangement.spacedBy(14.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
@@ -169,9 +231,8 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                 } else {
                     Column(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                         when(screen) {
-                            DiagnosticsScreen.CLOUD_ACCOUNT -> CloudAccountScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME})
                             DiagnosticsScreen.ZIP_RECORDS -> ZipRecordsScreen(database,onBack={screen=DiagnosticsScreen.HOME})
-                            DiagnosticsScreen.DEVICE_INVENTORY -> DeviceInventoryScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME},onOpenCloudAccount={screen=DiagnosticsScreen.CLOUD_ACCOUNT})
+                            DiagnosticsScreen.DEVICE_INVENTORY -> DeviceInventoryScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME},onOpenCloudAccount={screen=DiagnosticsScreen.HOME;rightOpen=false;leftOpen=true;leftExpanded="Admin Profile"})
                             DiagnosticsScreen.EVENTS -> {
                                 ScreenHeader("REPORT"){screen=DiagnosticsScreen.HOME}
                                 EventFilters(searchText,{searchText=it},severityFilter,{severityFilter=it})
@@ -220,24 +281,42 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                             Text("NAVIGATION & REPORTS",style=MaterialTheme.typography.titleMedium)
                             TextButton(onClick={leftOpen=false}){Text("Close ✕")}
                         }
-                        DrawerSection("Device Inventory List","Registered Editor installations",leftExpanded=="Device Inventory List",{leftExpanded=if(leftExpanded=="Device Inventory List")"" else "Device Inventory List"}) {
-                            DeviceInventoryScreen(cloudAccountRepository,onBack={},onOpenCloudAccount={leftExpanded="";rightOpen=true;leftOpen=false},inline=true)
+                        DrawerSection("Admin Profile","Permanent Owner Admin account and enrollment",leftExpanded=="Admin Profile",{leftExpanded=if(leftExpanded=="Admin Profile")"" else "Admin Profile"}) {
+                            OwnerAdminProfileMediaScreen()
+                            CloudAccountScreen(cloudAccountRepository,onBack={},inline=true,onSignOut=onSignOut)
                         }
-                        DrawerSection("All Events / Reports","${events.size} saved event(s)",leftExpanded=="All Events / Reports",{leftExpanded=if(leftExpanded=="All Events / Reports")"" else "All Events / Reports"}) {
-                            DrawerEventList(events){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
-                            TextButton(onClick={screen=DiagnosticsScreen.EVENTS;leftOpen=false}){Text("Open full report view")}
+                        DrawerSection("Device Inventory","Registered Nexus3D Editor installations",leftExpanded=="Device Inventory",{leftExpanded=if(leftExpanded=="Device Inventory")"" else "Device Inventory"}) {
+                            DeviceInventoryScreen(
+                                cloudAccountRepository,
+                                onBack={},
+                                onOpenCloudAccount={leftExpanded="Admin Profile"},
+                                inline=true,
+                                events=events,
+                                onEventSelected={e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            )
                         }
-                        DrawerSection("RDS LogCat","${events.count{it.source=="RDS_LOGCAT"}} report(s)",leftExpanded=="RDS LogCat",{leftExpanded=if(leftExpanded=="RDS LogCat")"" else "RDS LogCat"}) {
-                            DrawerEventList(events.filter{it.source=="RDS_LOGCAT"}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
-                        }
-                        DrawerSection("RIT Trace","${events.count{it.source=="RIT_TRACE"}} report(s)",leftExpanded=="RIT Trace",{leftExpanded=if(leftExpanded=="RIT Trace")"" else "RIT Trace"}) {
-                            DrawerEventList(events.filter{it.source=="RIT_TRACE"}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
-                        }
-                        DrawerSection("Errors","ERROR / FATAL reports",leftExpanded=="Errors",{leftExpanded=if(leftExpanded=="Errors")"" else "Errors"}) {
-                            DrawerEventList(events.filter{it.severity.equals("ERROR",true)||it.severity.equals("FATAL",true)}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
-                        }
-                        DrawerSection("Warnings","WARN / WARNING reports",leftExpanded=="Warnings",{leftExpanded=if(leftExpanded=="Warnings")"" else "Warnings"}) {
-                            DrawerEventList(events.filter{it.severity.equals("WARN",true)||it.severity.equals("WARNING",true)}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                        DrawerSection("GLOBAL REPORTS","Consolidated reports across all registered devices • ${events.size} record(s)",leftExpanded=="GLOBAL REPORTS",{leftExpanded=if(leftExpanded=="GLOBAL REPORTS")"" else "GLOBAL REPORTS"}) {
+                            DrawerSection("Full Reports","${events.size} record(s)",leftExpanded=="Full Reports",{leftExpanded=if(leftExpanded=="Full Reports")"" else "Full Reports"}) {
+                                DrawerEventList(events){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("Error Reports","${events.count{it.severity.equals("ERROR",true)||it.severity.equals("FATAL",true)}} record(s)",leftExpanded=="Error Reports",{leftExpanded=if(leftExpanded=="Error Reports")"" else "Error Reports"}) {
+                                DrawerEventList(events.filter{it.severity.equals("ERROR",true)||it.severity.equals("FATAL",true)}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("Warning Reports","${events.count{it.severity.equals("WARN",true)||it.severity.equals("WARNING",true)}} record(s)",leftExpanded=="Warning Reports",{leftExpanded=if(leftExpanded=="Warning Reports")"" else "Warning Reports"}) {
+                                DrawerEventList(events.filter{it.severity.equals("WARN",true)||it.severity.equals("WARNING",true)}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("Performance Reports","${events.count{it.source.contains("PERFORMANCE",true)||it.source.contains("PERF",true)}} record(s)",leftExpanded=="Performance Reports",{leftExpanded=if(leftExpanded=="Performance Reports")"" else "Performance Reports"}) {
+                                DrawerEventList(events.filter{it.source.contains("PERFORMANCE",true)||it.source.contains("PERF",true)}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("RDS LogCat Reports","${events.count{it.source=="RDS_LOGCAT"}} record(s)",leftExpanded=="RDS LogCat Reports",{leftExpanded=if(leftExpanded=="RDS LogCat Reports")"" else "RDS LogCat Reports"}) {
+                                DrawerEventList(events.filter{it.source=="RDS_LOGCAT"}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("RIT Trace Reports","${events.count{it.source=="RIT_TRACE"}} record(s)",leftExpanded=="RIT Trace Reports",{leftExpanded=if(leftExpanded=="RIT Trace Reports")"" else "RIT Trace Reports"}) {
+                                DrawerEventList(events.filter{it.source=="RIT_TRACE"}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
+                            DrawerSection("Session Reports","${events.count{it.sessionId!=null}} record(s)",leftExpanded=="Session Reports",{leftExpanded=if(leftExpanded=="Session Reports")"" else "Session Reports"}) {
+                                DrawerEventList(events.filter{it.sessionId!=null}){e->selectedEvent=e;screen=DiagnosticsScreen.EVENT_DETAILS;leftOpen=false}
+                            }
                         }
                     }
                 }
@@ -247,9 +326,6 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                             Text("SYSTEM & MANAGEMENT",style=MaterialTheme.typography.titleMedium)
                             TextButton(onClick={rightOpen=false}){Text("Close ✕")}
-                        }
-                        DrawerSection("Cloud Account","Pair Editor installations",rightExpanded=="Cloud Account",{rightExpanded=if(rightExpanded=="Cloud Account")"" else "Cloud Account"}) {
-                            CloudAccountScreen(cloudAccountRepository,onBack={},inline=true)
                         }
                         DrawerSection("ZIP Records","Import, export and inspect archives",rightExpanded=="ZIP Records",{rightExpanded=if(rightExpanded=="ZIP Records")"" else "ZIP Records"}) {
                             ZipRecordsScreen(database,onBack={},inline=true)
@@ -263,12 +339,12 @@ private fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountRepositor
                             Text("App files size: ${formatHardwareBytes(bytes)}")
                             Text("Read-only overview. No records are changed or deleted here.",style=MaterialTheme.typography.bodySmall)
                         }
-                        DrawerSection("Appearance & Settings","Choose Diagnostics background style",rightExpanded=="Appearance & Settings",{rightExpanded=if(rightExpanded=="Appearance & Settings")"" else "Appearance & Settings"}) {
-                            Text("BACKGROUND STYLE",style=MaterialTheme.typography.labelLarge)
-                            listOf("Dark Gray","Graphite","Midnight","Deep Navy").forEach { option ->
-                                FilterChip(selected=themeName==option,onClick={themeName=option;prefs.edit().putString("background_theme",option).apply()},label={Text(option)})
+                        DrawerSection("Appearance & Settings","Full interface customization",rightExpanded=="Appearance & Settings",{rightExpanded=if(rightExpanded=="Appearance & Settings")"" else "Appearance & Settings"}) {
+                            DrawerSection("Custom","Full customization controls",customAppearanceExpanded,{customAppearanceExpanded = !customAppearanceExpanded}) {
+                                AppearanceSettingsScreen(prefs) { _, _, _, _, _, _, _ ->
+                                    appearanceRefresh += 1
+                                }
                             }
-                            Text("Saved on this device and restored when the APK restarts.",style=MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -296,7 +372,7 @@ private fun DrawerSection(title:String,subtitle:String,expanded:Boolean,onToggle
 @Composable
 private fun DrawerEventList(events:List<DiagnosticEvent>,onSelect:(DiagnosticEvent)->Unit) {
     if(events.isEmpty()) Text("No matching reports received yet.",style=MaterialTheme.typography.bodySmall)
-    else events.take(10).forEach { e ->
+    else events.forEach { e ->
         Card(Modifier.fillMaxWidth().clickable{onSelect(e)}) {
             Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(3.dp)) {
                 Text(e.title,style=MaterialTheme.typography.titleSmall)
@@ -461,3 +537,13 @@ private fun formatTimestamp(epochMs: Long): String {
         Locale.getDefault()
     ).format(Date(epochMs))
 }
+
+internal fun parseHexColor(value: String?, fallback: Color): Color = runCatching {
+    val raw = value?.trim()?.removePrefix("#") ?: error("Missing color")
+    val argb = when (raw.length) {
+        6 -> (0xFF000000L or raw.toLong(16)).toInt()
+        8 -> raw.toLong(16).toInt()
+        else -> error("Invalid color")
+    }
+    Color(argb)
+}.getOrDefault(fallback)

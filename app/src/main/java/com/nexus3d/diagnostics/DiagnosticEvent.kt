@@ -2,10 +2,14 @@ package com.nexus3d.diagnostics
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-@Entity(tableName = "diagnostic_events")
+@Entity(
+    tableName = "diagnostic_events",
+    indices = [Index(value = ["deviceId", "eventId"], unique = true)]
+)
 data class DiagnosticEvent(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val source: String,
