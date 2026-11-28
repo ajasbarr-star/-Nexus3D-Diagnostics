@@ -54,6 +54,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.alpha
@@ -189,7 +191,10 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                     Image(
                         bitmap = customBackgroundBitmap,
                         contentDescription = "Custom Diagnostics background",
-                        modifier = Modifier.fillMaxSize().blur(backgroundBlur.dp).alpha(backgroundBrightness.coerceIn(0f, 1f)),
+                        modifier = Modifier.fillMaxSize().blur(backgroundBlur.dp),
+                        colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply {
+                            setToScale(backgroundBrightness, backgroundBrightness, backgroundBrightness, 1f)
+                        }),
                         contentScale = ContentScale.Crop
                     )
                 }
