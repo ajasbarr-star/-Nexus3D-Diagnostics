@@ -16,8 +16,12 @@ class AuthCallbackActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         lifecycleScope.launch {
-            val result = intent?.data?.let { uri ->
-                SupabaseAccountRepository(applicationContext).handleAuthCallback(uri)
+            val result = try {
+                intent?.data?.let { uri ->
+                    SupabaseAccountRepository(applicationContext).handleAuthCallback(uri)
+                }
+            } catch (error: Exception) {
+                error.message ?: "Unable to verify the Owner Admin recovery link."
             }
 
             if (result.isNullOrBlank()) {
