@@ -48,6 +48,7 @@ fun CloudAccountScreen(
     inline: Boolean = false,
     onSignOut: () -> Unit = {}
 ) {
+    val appearance = LocalDiagnosticsAppearance.current
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
     var email by remember { mutableStateOf("") }
@@ -310,7 +311,7 @@ fun CloudAccountScreen(
                         message = "Signed out."
                         onSignOut()
                     }
-                ) { Icon(Icons.Default.Logout, contentDescription = "Sign Out") }
+                 ) { Icon(Icons.Default.Logout, contentDescription = "Sign Out", modifier = Modifier.size((24f * appearance.iconScale).dp)) }
             }
 
             if (busy) CircularProgressIndicator()
