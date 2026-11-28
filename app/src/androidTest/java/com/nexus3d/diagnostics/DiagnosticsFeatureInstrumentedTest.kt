@@ -1,5 +1,7 @@
 package com.nexus3d.diagnostics
 
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -65,6 +67,9 @@ class DiagnosticsFeatureInstrumentedTest {
         composeRule.onNodeWithText("SET PIN/PASS").assertIsDisplayed()
         composeRule.onNodeWithText("RESET PIN/PASS").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Copy Permanent Admin Unique ID").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Copy Permanent Admin Unique ID").performClick()
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        assertEquals("TEST-OWNER-ADMIN-ID", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
 
         val store = OwnerAdminLocalStore(context)
         assertTrue(store.hasCredential())
