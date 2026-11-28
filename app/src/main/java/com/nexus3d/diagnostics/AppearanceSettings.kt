@@ -146,6 +146,11 @@ fun DiagnosticsAppearance.toColorScheme(): ColorScheme = darkColorScheme(
     background = Color(backgroundColor),
     surface = Color(panelColor).copy(alpha = panelOpacity.coerceIn(0.2f, 1f)),
     surfaceVariant = Color(panelColor).copy(alpha = panelOpacity.coerceIn(0.2f, 1f)),
+    surfaceContainerLowest = Color(panelColor).copy(alpha = panelOpacity.coerceIn(0.2f, 1f)),
+    surfaceContainerLow = Color(panelColor).copy(alpha = panelOpacity.coerceIn(0.2f, 1f)),
+    surfaceContainer = Color(panelColor).copy(alpha = panelOpacity.coerceIn(0.2f, 1f)),
+    surfaceContainerHigh = Color(panelColor).copy(alpha = panelOpacity.coerceIn(0.2f, 1f)),
+    surfaceContainerHighest = Color(panelColor).copy(alpha = panelOpacity.coerceIn(0.2f, 1f)),
     onSurface = Color(textColor),
     onBackground = Color(textColor),
     outline = Color(accentColor).copy(alpha = (borderWidth / 4f).coerceIn(0.12f, 1f))
