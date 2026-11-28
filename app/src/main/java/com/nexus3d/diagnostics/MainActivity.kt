@@ -131,6 +131,7 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
     var severityFilter by remember { mutableStateOf("ALL") }
     var showClearConfirmation by remember { mutableStateOf(false) }
     var rightExpanded by remember { mutableStateOf("Appearance & Settings") }
+    var customAppearanceExpanded by remember { mutableStateOf(true) }
 
     val colors = darkColorScheme(
         primary = buttonColor,
@@ -338,8 +339,10 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                             Text("Read-only overview. No records are changed or deleted here.",style=MaterialTheme.typography.bodySmall)
                         }
                         DrawerSection("Appearance & Settings","Full interface customization",rightExpanded=="Appearance & Settings",{rightExpanded=if(rightExpanded=="Appearance & Settings")"" else "Appearance & Settings"}) {
-                            AppearanceSettingsScreen(prefs) { _, _, _, _, _, _, _ ->
-                                appearanceRefresh += 1
+                            DrawerSection("Custom","Full customization controls",customAppearanceExpanded,{customAppearanceExpanded = !customAppearanceExpanded}) {
+                                AppearanceSettingsScreen(prefs) { _, _, _, _, _, _, _ ->
+                                    appearanceRefresh += 1
+                                }
                             }
                         }
                     }
