@@ -1,5 +1,6 @@
 
 name: Nexus3D Diagnostics Android APK
+# This repair branch runs the same signed APK validation used for release candidates.
 
 on:
   push:
