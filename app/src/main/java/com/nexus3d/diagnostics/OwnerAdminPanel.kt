@@ -197,7 +197,8 @@ fun OwnerAdminStatusbarPanel(
             if (!unlocked && !hasCredential) {
                 Text("Set a PIN or Password before opening protected Owner Admin information.")
                 Button(onClick = { resetDialogFields(); dialog = OwnerAdminDialog.SETUP }) {
-                    Text("Set PIN / Password")
+                    Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(scaledIconSize))
+                    Text(" SET PIN/PASS")
                 }
             }
 
