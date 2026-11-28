@@ -20,7 +20,7 @@ class DiagnosticsStartupSmokeTest {
         composeRule.onNodeWithText("OWNER ADMIN LOGIN").assertIsDisplayed()
         composeRule.onNodeWithText("Nexus3D Diagnostics").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Nexus3D Diagnostics logo").assertIsDisplayed()
-        composeRule.onNodeWithText("✔ REMEMBER MY LOGIN").assertIsDisplayed()
+        composeRule.onNodeWithText("REMEMBER MY LOGIN").assertIsDisplayed()
         composeRule.onNodeWithText("RESET PASSWORD").assertIsDisplayed()
     }
 
