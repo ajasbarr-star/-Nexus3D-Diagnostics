@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class DiagnosticsScreen {
-    HOME, EVENTS, RDS_LOGCAT, RIT_TRACE, EVENT_DETAILS, CLOUD_ACCOUNT, DEVICE_INVENTORY, ZIP_RECORDS
+    HOME, EVENTS, RDS_LOGCAT, RIT_TRACE, EVENT_DETAILS, DEVICE_INVENTORY, ZIP_RECORDS
 }
 
 @Composable
@@ -110,7 +110,6 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
         rightOpen -> "drawer"
         screen == DiagnosticsScreen.EVENTS || screen == DiagnosticsScreen.RDS_LOGCAT || screen == DiagnosticsScreen.RIT_TRACE || screen == DiagnosticsScreen.EVENT_DETAILS -> "reports"
         screen == DiagnosticsScreen.DEVICE_INVENTORY -> "devices"
-        screen == DiagnosticsScreen.CLOUD_ACCOUNT -> "admin"
         else -> "home"
     }
     var appearanceRefresh by remember { mutableStateOf(0) }
@@ -232,9 +231,8 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                 } else {
                     Column(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                         when(screen) {
-                            DiagnosticsScreen.CLOUD_ACCOUNT -> CloudAccountScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME},onSignOut=onSignOut)
                             DiagnosticsScreen.ZIP_RECORDS -> ZipRecordsScreen(database,onBack={screen=DiagnosticsScreen.HOME})
-                            DiagnosticsScreen.DEVICE_INVENTORY -> DeviceInventoryScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME},onOpenCloudAccount={screen=DiagnosticsScreen.CLOUD_ACCOUNT})
+                            DiagnosticsScreen.DEVICE_INVENTORY -> DeviceInventoryScreen(cloudAccountRepository,onBack={screen=DiagnosticsScreen.HOME},onOpenCloudAccount={screen=DiagnosticsScreen.HOME;rightOpen=false;leftOpen=true;leftExpanded="Admin Profile"})
                             DiagnosticsScreen.EVENTS -> {
                                 ScreenHeader("REPORT"){screen=DiagnosticsScreen.HOME}
                                 EventFilters(searchText,{searchText=it},severityFilter,{severityFilter=it})
@@ -284,6 +282,7 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                             TextButton(onClick={leftOpen=false}){Text("Close ✕")}
                         }
                         DrawerSection("Admin Profile","Permanent Owner Admin account and enrollment",leftExpanded=="Admin Profile",{leftExpanded=if(leftExpanded=="Admin Profile")"" else "Admin Profile"}) {
+                            OwnerAdminProfileMediaScreen()
                             CloudAccountScreen(cloudAccountRepository,onBack={},inline=true,onSignOut=onSignOut)
                         }
                         DrawerSection("Device Inventory","Registered Nexus3D Editor installations",leftExpanded=="Device Inventory",{leftExpanded=if(leftExpanded=="Device Inventory")"" else "Device Inventory"}) {
@@ -327,9 +326,6 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                             Text("SYSTEM & MANAGEMENT",style=MaterialTheme.typography.titleMedium)
                             TextButton(onClick={rightOpen=false}){Text("Close ✕")}
-                        }
-                        DrawerSection("Cloud Account","Pair Editor installations",rightExpanded=="Cloud Account",{rightExpanded=if(rightExpanded=="Cloud Account")"" else "Cloud Account"}) {
-                            CloudAccountScreen(cloudAccountRepository,onBack={},inline=true,onSignOut=onSignOut)
                         }
                         DrawerSection("ZIP Records","Import, export and inspect archives",rightExpanded=="ZIP Records",{rightExpanded=if(rightExpanded=="ZIP Records")"" else "ZIP Records"}) {
                             ZipRecordsScreen(database,onBack={},inline=true)
