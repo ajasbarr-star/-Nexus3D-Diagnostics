@@ -1,6 +1,11 @@
 package com.nexus3d.diagnostics
 
+import android.graphics.BitmapFactory
+import android.net.Uri
+
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +33,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Image
@@ -50,6 +64,32 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
     var message by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val appearancePrefs = remember { context.getSharedPreferences("nexus3d_diagnostics_appearance", 0) }
+    val appearanceScope = if (stage == StartupStage.AUTH) "login" else "admin"
+    val startupBackground = parseHexColor(appearancePrefs.getString("${appearanceScope}_background_hex", appearancePrefs.getString("background_hex", "#242629")), Color(0xFF242629))
+    val startupSurface = parseHexColor(appearancePrefs.getString("${appearanceScope}_surface_hex", appearancePrefs.getString("surface_hex", "#2D3034")), Color(0xFF2D3034))
+    val startupText = parseHexColor(appearancePrefs.getString("${appearanceScope}_text_hex", appearancePrefs.getString("text_hex", "#E8EAED")), Color(0xFFE8EAED))
+    val startupBorder = parseHexColor(appearancePrefs.getString("${appearanceScope}_border_hex", appearancePrefs.getString("border_hex", "#60666D")), Color(0xFF60666D))
+    val startupAccent = parseHexColor(appearancePrefs.getString("${appearanceScope}_primary_hex", appearancePrefs.getString("primary_hex", "#80CBC4")), Color(0xFF80CBC4))
+    val startupButton = parseHexColor(appearancePrefs.getString("${appearanceScope}_button_hex", appearancePrefs.getString("button_hex", "#80CBC4")), Color(0xFF80CBC4))
+    val startupIcon = parseHexColor(appearancePrefs.getString("${appearanceScope}_icon_hex", appearancePrefs.getString("icon_hex", "#80CBC4")), Color(0xFF80CBC4))
+    val startupOpacity = appearancePrefs.getFloat("${appearanceScope}_panel_opacity", appearancePrefs.getFloat("panel_opacity", 1f)).coerceIn(0.25f, 1f)
+    val startupBlur = appearancePrefs.getFloat("${appearanceScope}_blur", appearancePrefs.getFloat("blur", 0f)).coerceIn(0f, 24f)
+    val startupBrightness = appearancePrefs.getFloat("${appearanceScope}_brightness", appearancePrefs.getFloat("brightness", 1f)).coerceIn(0.4f, 1.5f)
+    val startupGradient = appearancePrefs.getBoolean("${appearanceScope}_gradient_enabled", appearancePrefs.getBoolean("gradient_enabled", false))
+    val startupGradientEnd = parseHexColor(appearancePrefs.getString("${appearanceScope}_gradient_end_hex", appearancePrefs.getString("gradient_end_hex", "#101923")), Color(0xFF101923))
+    val startupImageUri = appearancePrefs.getString("${appearanceScope}_background_image_uri", appearancePrefs.getString("background_image_uri", "")) ?: ""
+    val startupColors = darkColorScheme(
+        primary = startupButton,
+        secondary = startupAccent,
+        tertiary = startupIcon,
+        background = startupBackground,
+        surface = startupSurface.copy(alpha = startupOpacity),
+        onSurface = startupText,
+        onBackground = startupText,
+        outline = startupBorder
+    )
 
     fun clearSessionSafely() {
         runCatching { repository.signOut() }
@@ -104,9 +144,33 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
         error = "Owner Admin verification must be completed before entering Diagnostics."
     }
 
-    MaterialTheme {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            when (stage) {
+    MaterialTheme(colorScheme = startupColors) {
+        Surface(Modifier.fillMaxSize(), color = Color.Transparent) {
+            Box(
+                Modifier.fillMaxSize().background(
+                    if (startupGradient) Brush.linearGradient(listOf(startupBackground, startupGradientEnd))
+                    else androidx.compose.ui.graphics.SolidColor(startupBackground)
+                )
+            ) {
+                val startupBitmap = remember(startupImageUri) {
+                    if (startupImageUri.isBlank()) null else runCatching {
+                        context.contentResolver.openInputStream(Uri.parse(startupImageUri))?.use { stream ->
+                            BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                        }
+                    }.getOrNull()
+                }
+                if (startupBitmap != null) {
+                    Image(
+                        bitmap = startupBitmap,
+                        contentDescription = "Custom Diagnostics background",
+                        modifier = Modifier.fillMaxSize().blur(startupBlur.dp),
+                        colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply {
+                            setToScale(startupBrightness, startupBrightness, startupBrightness, 1f)
+                        }),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                when (stage) {
                 StartupStage.AUTH -> Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -261,6 +325,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                             error = ""
                         }
                     ) { Text("Sign Out") }
+                }
                 }
             }
         }
