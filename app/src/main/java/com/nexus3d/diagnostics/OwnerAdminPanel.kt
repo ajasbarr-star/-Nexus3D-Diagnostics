@@ -264,7 +264,7 @@ fun OwnerAdminStatusbarPanel(
                         dialog = OwnerAdminDialog.CHANGE
                     }) {
                         Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(scaledIconSize))
-                        Text(" SET PIN/PASS")
+                        Text("SET PIN/PASS")
                     }
                     OutlinedButton(onClick = {
                         resetDialogFields()
