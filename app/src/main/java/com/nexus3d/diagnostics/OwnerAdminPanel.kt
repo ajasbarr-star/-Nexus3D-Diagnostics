@@ -69,7 +69,8 @@ fun OwnerAdminStatusbarPanel(
     repository: SupabaseAccountRepository
 ) {
     val owner = status ?: return
-    if (!owner.registered || owner.status != "active" || owner.adminId.isNullOrBlank()) return
+    val adminId = owner.adminId ?: return
+    if (!owner.registered || owner.status != "active" || adminId.isBlank()) return
 
     val context = LocalContext.current
     val appearance = LocalDiagnosticsAppearance.current
@@ -202,9 +203,9 @@ fun OwnerAdminStatusbarPanel(
                 Text("Verified Owner Admin: ajasbarr@gmail.com", style = MaterialTheme.typography.bodySmall)
                 Text("Permanent Admin Unique ID", style = MaterialTheme.typography.labelMedium)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(owner.adminId, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    Text(adminId, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                     IconButton(onClick = {
-                        clipboard.setText(AnnotatedString(status.adminId))
+                        clipboard.setText(AnnotatedString(adminId))
                         message = "Permanent Admin Unique ID copied."
                     }) {
                         Icon(Icons.Default.ContentCopy, contentDescription = "Copy Permanent Admin Unique ID", modifier = Modifier.size(scaledIconSize))
