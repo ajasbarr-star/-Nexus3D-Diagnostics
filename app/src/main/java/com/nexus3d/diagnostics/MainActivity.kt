@@ -97,6 +97,7 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
     val events by database.eventDao().observeAll().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("nexus3d_diagnostics_appearance", 0) }
+    var screen by remember { mutableStateOf(DiagnosticsScreen.HOME) }
     val appearanceScope = when (screen) {
         DiagnosticsScreen.EVENTS, DiagnosticsScreen.RDS_LOGCAT, DiagnosticsScreen.RIT_TRACE, DiagnosticsScreen.EVENT_DETAILS -> "reports"
         DiagnosticsScreen.DEVICE_INVENTORY -> "devices"
@@ -116,10 +117,7 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
     val gradientEnabled = prefs.getBoolean("${appearanceScope}_gradient_enabled", prefs.getBoolean("gradient_enabled", false))
     val gradientEnd = parseHexColor(prefs.getString("${appearanceScope}_gradient_end_hex", prefs.getString("gradient_end_hex", "#101923")), Color(0xFF101923))
     val backgroundImageUri = prefs.getString("${appearanceScope}_background_image_uri", prefs.getString("background_image_uri", "")) ?: ""
-    @Suppress("UNUSED_EXPRESSION")
-    appearanceRefresh
-    var screen by remember { mutableStateOf(DiagnosticsScreen.HOME) }
-    var selectedEvent by remember { mutableStateOf<DiagnosticEvent?>(null) }
+        var selectedEvent by remember { mutableStateOf<DiagnosticEvent?>(null) }
     var searchText by remember { mutableStateOf("") }
     var severityFilter by remember { mutableStateOf("ALL") }
     var showClearConfirmation by remember { mutableStateOf(false) }
