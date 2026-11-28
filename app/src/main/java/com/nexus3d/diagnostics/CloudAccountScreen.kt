@@ -133,7 +133,7 @@ fun CloudAccountScreen(
                     singleLine = true
                 )
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Checkbox(checked = rememberLogin, onCheckedChange = {
+                    Checkbox(modifier = Modifier.testTag("rememberMyLoginCheckbox"), checked = rememberLogin, onCheckedChange = {
                         rememberLogin = it
                         repository.setRememberLogin(it)
                     })
