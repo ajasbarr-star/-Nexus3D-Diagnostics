@@ -28,7 +28,7 @@ class DiagnosticsFeatureInstrumentedTest {
 
     @Test
     fun loginPanelShowsRememberAndPasswordRecoveryControls() {
-        composeRule.onNodeWithText("✔ REMEMBER MY LOGIN").assertIsDisplayed()
+        composeRule.onNodeWithText("REMEMBER MY LOGIN").assertIsDisplayed()
         composeRule.onNodeWithText("RESET PASSWORD").assertIsDisplayed()
     }
 
