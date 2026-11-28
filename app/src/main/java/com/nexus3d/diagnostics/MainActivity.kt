@@ -338,11 +338,8 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
                             Text("Read-only overview. No records are changed or deleted here.",style=MaterialTheme.typography.bodySmall)
                         }
                         DrawerSection("Appearance & Settings","Full interface customization",rightExpanded=="Appearance & Settings",{rightExpanded=if(rightExpanded=="Appearance & Settings")"" else "Appearance & Settings"}) {
-                            AppearanceSettingsScreen(prefs) { scope, _, _, _, _, _, _ ->
-                                appearanceRefresh = !appearanceRefresh
-                                if (scope == "global" || scope == appearanceScope) {
-                                    // Theme values are read from local preferences on recomposition.
-                                }
+                            AppearanceSettingsScreen(prefs) { _, _, _, _, _, _, _ ->
+                                appearanceRefresh += 1
                             }
                         }
                     }
