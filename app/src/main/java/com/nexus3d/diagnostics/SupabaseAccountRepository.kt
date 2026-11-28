@@ -448,6 +448,18 @@ class SupabaseAccountRepository(context: Context) {
                 .put("expires_in", expiresIn),
             forcePersist = callbackType == "recovery"
         )
+        if (callbackType == "recovery") {
+            val owner = try {
+                fetchOwnerAdminStatus()
+            } catch (error: Exception) {
+                signOut()
+                throw IllegalStateException("Unable to verify the Owner Admin account for password recovery.", error)
+            }
+            if (!owner.registered || owner.status != "active" || !owner.eligible || !owner.emailVerified) {
+                signOut()
+                throw IllegalStateException("This recovery link is not for the verified Owner Admin account.")
+            }
+        }
         return if (callbackType == "recovery") {
             "Password recovery verified. Return to Diagnostics to set a new password."
         } else {
