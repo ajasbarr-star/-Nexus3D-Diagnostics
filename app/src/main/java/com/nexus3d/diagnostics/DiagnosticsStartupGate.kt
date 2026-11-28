@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -137,8 +138,9 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
         shapes = effectiveAppearance.toShapes(),
         typography = effectiveAppearance.toTypography(Typography())
     ) {
-        DiagnosticsAppearanceBackdrop(effectiveAppearance) {
-            Surface(Modifier.fillMaxSize(), color = Color.Transparent) {
+        CompositionLocalProvider(LocalDiagnosticsAppearance provides effectiveAppearance) {
+            DiagnosticsAppearanceBackdrop(effectiveAppearance) {
+                Surface(Modifier.fillMaxSize(), color = Color.Transparent) {
                 when (stage) {
                 StartupStage.AUTH -> Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
