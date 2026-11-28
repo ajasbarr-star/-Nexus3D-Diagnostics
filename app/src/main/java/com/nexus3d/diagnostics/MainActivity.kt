@@ -114,6 +114,8 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
     var appearanceRefresh by remember { mutableStateOf(0) }
     val themeName = prefs.getString("${appearanceScope}_background_theme", prefs.getString("background_theme", "Dark Gray")) ?: "Dark Gray"
     val primaryColor = parseHexColor(prefs.getString("${appearanceScope}_primary_hex", prefs.getString("primary_hex", "#80CBC4")), Color(0xFF80CBC4))
+    val buttonColor = parseHexColor(prefs.getString("${appearanceScope}_button_hex", prefs.getString("button_hex", "#80CBC4")), Color(0xFF80CBC4))
+    val iconColor = parseHexColor(prefs.getString("${appearanceScope}_icon_hex", prefs.getString("icon_hex", "#80CBC4")), Color(0xFF80CBC4))
     val backgroundColor = parseHexColor(prefs.getString("${appearanceScope}_background_hex", prefs.getString("background_hex", "#242629")), Color(0xFF242629))
     val surfaceColor = parseHexColor(prefs.getString("${appearanceScope}_surface_hex", prefs.getString("surface_hex", "#2D3034")), Color(0xFF2D3034))
     val textColor = parseHexColor(prefs.getString("${appearanceScope}_text_hex", prefs.getString("text_hex", "#E8EAED")), Color(0xFFE8EAED))
@@ -131,8 +133,9 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
     var rightExpanded by remember { mutableStateOf("Appearance & Settings") }
 
     val colors = darkColorScheme(
-        primary = primaryColor,
-        secondary = parseHexColor(prefs.getString("${appearanceScope}_button_hex", prefs.getString("button_hex", "#80CBC4")), Color(0xFF9EADB5)),
+        primary = buttonColor,
+        secondary = primaryColor,
+        tertiary = iconColor,
         background = backgroundColor,
         surface = surfaceColor.copy(alpha = panelOpacity),
         surfaceVariant = surfaceColor.copy(alpha = 0.92f),
