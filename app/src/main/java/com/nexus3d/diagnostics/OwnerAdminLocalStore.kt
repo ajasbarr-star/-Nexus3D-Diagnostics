@@ -24,6 +24,8 @@ class OwnerAdminLocalStore(private val context: Context) {
         private const val KIND = "credential_kind"
         private const val PROFILE = "profile_image_path"
         private const val COVER = "cover_image_path"
+        private const val FAILED_ATTEMPTS = "credential_failed_attempts"
+        private const val LOCKED_UNTIL = "credential_locked_until"
         private const val ITERATIONS = 210_000
         private const val KEY_BITS = 256
     }
@@ -55,17 +57,30 @@ class OwnerAdminLocalStore(private val context: Context) {
             .putString(SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
             .putString(HASH, Base64.encodeToString(hash, Base64.NO_WRAP))
             .putString(KIND, kind)
+            .putInt(FAILED_ATTEMPTS, 0)
+            .remove(LOCKED_UNTIL)
             .apply()
     }
 
     fun verifyCredential(value: String): Boolean {
+        val now = System.currentTimeMillis()
+        if (now < preferences.getLong(LOCKED_UNTIL, 0L)) return false
         val saltText = preferences.getString(SALT, null) ?: return false
         val hashText = preferences.getString(HASH, null) ?: return false
-        return runCatching {
+        val valid = runCatching {
             val salt = Base64.decode(saltText, Base64.NO_WRAP)
             val expected = Base64.decode(hashText, Base64.NO_WRAP)
             MessageDigest.isEqual(expected, derive(value, salt))
         }.getOrDefault(false)
+        if (valid) {
+            preferences.edit().putInt(FAILED_ATTEMPTS, 0).remove(LOCKED_UNTIL).apply()
+        } else {
+            val failures = preferences.getInt(FAILED_ATTEMPTS, 0) + 1
+            val edit = preferences.edit().putInt(FAILED_ATTEMPTS, failures)
+            if (failures >= 5) edit.putLong(LOCKED_UNTIL, now + 5 * 60 * 1000L)
+            edit.apply()
+        }
+        return valid
     }
 
     private fun derive(value: String, salt: ByteArray): ByteArray {
