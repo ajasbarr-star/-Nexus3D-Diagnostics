@@ -102,12 +102,12 @@ fun OwnerAdminStatusbarPanel(
 
     val profilePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) runCatching { store.saveImage(uri, "profile") }
-            .onSuccess { profilePath = it; message = "Profile picture saved on this device." }
+            .onSuccess { profilePath = it; profileScale = 1f; store.saveImageCrop("profile", 1f); message = "Profile picture saved on this device." }
             .onFailure { error = it.message ?: "Unable to save profile picture." }
     }
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) runCatching { store.saveImage(uri, "cover") }
-            .onSuccess { coverPath = it; message = "Cover photo saved on this device." }
+            .onSuccess { coverPath = it; coverScale = 1f; coverOffsetX = 0f; coverOffsetY = 0f; store.saveImageCrop("cover", 1f); message = "Cover photo saved on this device." }
             .onFailure { error = it.message ?: "Unable to save cover photo." }
     }
 
