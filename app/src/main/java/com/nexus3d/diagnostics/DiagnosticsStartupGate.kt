@@ -342,7 +342,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                         Text(status?.adminId ?: "Unavailable", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                         IconButton(enabled = status?.adminId?.isNotBlank() == true, onClick = {
                             status?.adminId?.let { clipboard.setText(AnnotatedString(it)); message = "Permanent Admin Unique ID copied." }
-                        }) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy Permanent Admin Unique ID") }
+                        }) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy Permanent Admin Unique ID", modifier = Modifier.size((24f * effectiveAppearance.iconScale).dp)) }
                     }
                     Text("This ID belongs to the Diagnostics Owner Admin account and is separate from all Nexus3D Editor Device IDs.")
                     Button(enabled = status?.adminId?.isNotBlank() == true, onClick = { stage = StartupStage.DASHBOARD }) { Text("Continue to Main Dashboard") }
@@ -377,7 +377,7 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                     IconButton(
                         modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                         onClick = { showSignOutConfirmation = true }
-                    ) { Icon(Icons.Default.Logout, contentDescription = "Sign Out") }
+                     ) { Icon(Icons.Default.Logout, contentDescription = "Sign Out", modifier = Modifier.size((24f * effectiveAppearance.iconScale).dp)) }
                 }
             }
         }
