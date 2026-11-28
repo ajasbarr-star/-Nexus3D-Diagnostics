@@ -2,6 +2,8 @@
 package com.nexus3d.diagnostics
 
 import android.os.Bundle
+import android.os.Build
+import android.graphics.Rect
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -95,6 +97,23 @@ class MainActivity : ComponentActivity() {
             controller.hide(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+        if (Build.VERSION.SDK_INT >= 29) {
+            window.decorView.post {
+                val view = window.decorView
+                val width = view.width
+                val height = view.height
+                if (width > 0 && height > 0) {
+                    val density = resources.displayMetrics.density
+                    val strip = (24f * density).toInt().coerceAtLeast(1)
+                    val exclusionHeight = (200f * density).toInt().coerceAtMost(height)
+                    val top = ((height - exclusionHeight) / 2).coerceAtLeast(0)
+                    view.systemGestureExclusionRects = listOf(
+                        Rect(0, top, strip.coerceAtMost(width), top + exclusionHeight),
+                        Rect((width - strip).coerceAtLeast(0), top, width, top + exclusionHeight)
+                    )
+                }
+            }
         }
     }
 }
