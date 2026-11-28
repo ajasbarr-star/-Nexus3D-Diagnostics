@@ -27,6 +27,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.size
@@ -49,6 +52,9 @@ private enum class StartupStage { AUTH, CONSENT, SETUP_CODE, ADMIN_ID, RESET_PAS
 
 @Composable
 fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAccountRepository) {
+    val context = LocalContext.current
+    val appearanceStore = remember { DiagnosticsAppearanceStore(context) }
+    var appearance by remember { mutableStateOf(appearanceStore.load()) }
     var stage by remember { mutableStateOf(StartupStage.AUTH) }
     var registerMode by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("ajasbarr@gmail.com") }
@@ -125,9 +131,15 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
         error = "Owner Admin verification must be completed before entering Diagnostics."
     }
 
-    MaterialTheme {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            when (stage) {
+    val effectiveAppearance = if (appearance.applyToAllScreens || stage == StartupStage.DASHBOARD) appearance else DiagnosticsAppearance.Default
+    MaterialTheme(
+        colorScheme = effectiveAppearance.toColorScheme(),
+        shapes = effectiveAppearance.toShapes(),
+        typography = effectiveAppearance.toTypography(Typography())
+    ) {
+        DiagnosticsAppearanceBackdrop(effectiveAppearance) {
+            Surface(Modifier.fillMaxSize(), color = Color.Transparent) {
+                when (stage) {
                 StartupStage.AUTH -> Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -334,7 +346,10 @@ fun DiagnosticsStartupGate(database: DiagnosticsDatabase, repository: SupabaseAc
                     Button(enabled = status?.adminId?.isNotBlank() == true, onClick = { stage = StartupStage.DASHBOARD }) { Text("Continue to Main Dashboard") }
                 }
                 StartupStage.DASHBOARD -> Box(Modifier.fillMaxSize()) {
-                    DiagnosticsHome(database, repository, status, onSignOut = {
+                    DiagnosticsHome(database, repository, status, appearance, onAppearanceChange = {
+                        appearance = it
+                        appearanceStore.save(it)
+                    }, onSignOut = {
                         clearSessionSafely()
                         status = null
                         stage = StartupStage.AUTH
