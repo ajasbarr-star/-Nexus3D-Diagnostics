@@ -106,7 +106,7 @@ class DiagnosticsFeatureInstrumentedTest {
 
         composeRule.onNodeWithTag("ownerAdminLockButton").performScrollTo().performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Owner Admin panel locked.").assertIsDisplayed()
+        composeRule.onNodeWithText("Owner Admin panel locked.").performScrollTo().assertIsDisplayed()
         composeRule.onAllNodesWithTag("ownerAdminProtectedId").assertCountEquals(0)
         context.deleteSharedPreferences("nexus3d_owner_admin_local")
     }
