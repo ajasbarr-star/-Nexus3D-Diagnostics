@@ -22,8 +22,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: nexus3d-diagnostics-test-apk
-  cancel-in-progress: false
+  group: nexus3d-diagnostics-test-apk-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
