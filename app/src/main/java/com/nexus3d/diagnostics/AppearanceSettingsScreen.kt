@@ -1,6 +1,7 @@
 package com.nexus3d.diagnostics
 
 import android.content.SharedPreferences
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -28,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
@@ -86,6 +88,7 @@ fun AppearanceSettingsScreen(
     prefs: SharedPreferences,
     onApplied: (String, String, Color, Color, Color, Color, Color) -> Unit
 ) {
+    val context = LocalContext.current
     var scope by remember { mutableStateOf("global") }
     var draft by remember { mutableStateOf(loadAppearanceDraft(prefs, scope)) }
     var primary by remember { mutableStateOf(draft.primary) }
@@ -105,6 +108,7 @@ fun AppearanceSettingsScreen(
     var message by remember { mutableStateOf("Changes are a preview until you tap Apply.") }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             runCatching { prefs.edit().putString("pending_background_image_uri", uri.toString()).apply() }
             imageUri = uri.toString()
             message = "Background image selected. Tap Apply to save it."
