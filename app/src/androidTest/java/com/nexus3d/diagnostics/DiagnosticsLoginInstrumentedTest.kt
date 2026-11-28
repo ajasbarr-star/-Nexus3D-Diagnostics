@@ -1,6 +1,6 @@
 package com.nexus3d.diagnostics
 
-import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -39,11 +39,11 @@ class DiagnosticsLoginInstrumentedTest {
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText("OWNER ADMIN LOGIN").assertExists()
-        composeRule.onNodeWithText("Nexus3D Diagnostics").assertExists()
-        composeRule.onNodeWithContentDescription("Nexus3D Diagnostics logo").assertExists()
-        composeRule.onNodeWithText("REMEMBER MY LOGIN").assertExists()
-        composeRule.onNodeWithText("RESET PASSWORD").assertExists()
+        composeRule.onNodeWithText("OWNER ADMIN LOGIN").assertIsDisplayed()
+        composeRule.onNodeWithText("Nexus3D Diagnostics").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Nexus3D Diagnostics logo").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("REMEMBER MY LOGIN").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("RESET PASSWORD").performScrollTo().assertIsDisplayed()
 
         composeRule.onNodeWithTag("rememberMyLoginCheckbox").performScrollTo().performClick()
         assertTrue(repository.isRememberLoginEnabled())
