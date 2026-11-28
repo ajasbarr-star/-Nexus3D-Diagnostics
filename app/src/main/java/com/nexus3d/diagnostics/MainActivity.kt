@@ -98,10 +98,17 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("nexus3d_diagnostics_appearance", 0) }
     var screen by remember { mutableStateOf(DiagnosticsScreen.HOME) }
-    val appearanceScope = when (screen) {
-        DiagnosticsScreen.EVENTS, DiagnosticsScreen.RDS_LOGCAT, DiagnosticsScreen.RIT_TRACE, DiagnosticsScreen.EVENT_DETAILS -> "reports"
-        DiagnosticsScreen.DEVICE_INVENTORY -> "devices"
-        DiagnosticsScreen.CLOUD_ACCOUNT -> "admin"
+    var leftOpen by remember { mutableStateOf(false) }
+    var rightOpen by remember { mutableStateOf(false) }
+    var leftExpanded by remember { mutableStateOf("Device Inventory") }
+    val appearanceScope = when {
+        leftOpen && leftExpanded == "Device Inventory" -> "devices"
+        leftOpen && leftExpanded == "Admin Profile" -> "admin"
+        leftOpen && leftExpanded == "GLOBAL REPORTS" -> "reports"
+        rightOpen -> "drawer"
+        screen == DiagnosticsScreen.EVENTS || screen == DiagnosticsScreen.RDS_LOGCAT || screen == DiagnosticsScreen.RIT_TRACE || screen == DiagnosticsScreen.EVENT_DETAILS -> "reports"
+        screen == DiagnosticsScreen.DEVICE_INVENTORY -> "devices"
+        screen == DiagnosticsScreen.CLOUD_ACCOUNT -> "admin"
         else -> "home"
     }
     var appearanceRefresh by remember { mutableStateOf(0) }
@@ -121,9 +128,6 @@ internal fun DiagnosticsHome(database: DiagnosticsDatabase, cloudAccountReposito
     var searchText by remember { mutableStateOf("") }
     var severityFilter by remember { mutableStateOf("ALL") }
     var showClearConfirmation by remember { mutableStateOf(false) }
-    var leftOpen by remember { mutableStateOf(false) }
-    var rightOpen by remember { mutableStateOf(false) }
-    var leftExpanded by remember { mutableStateOf("Device Inventory List") }
     var rightExpanded by remember { mutableStateOf("Appearance & Settings") }
 
     val colors = darkColorScheme(
@@ -364,7 +368,7 @@ private fun DrawerSection(title:String,subtitle:String,expanded:Boolean,onToggle
 @Composable
 private fun DrawerEventList(events:List<DiagnosticEvent>,onSelect:(DiagnosticEvent)->Unit) {
     if(events.isEmpty()) Text("No matching reports received yet.",style=MaterialTheme.typography.bodySmall)
-    else events.take(10).forEach { e ->
+    else events.forEach { e ->
         Card(Modifier.fillMaxWidth().clickable{onSelect(e)}) {
             Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(3.dp)) {
                 Text(e.title,style=MaterialTheme.typography.titleSmall)
